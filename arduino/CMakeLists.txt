@@ -20,7 +20,7 @@ set(FIRMWARE_NAME kamikaze-slave-firmware )
 set(${FIRMWARE_NAME}_BOARD uno)               # Arduino Target board
 set(${FIRMWARE_NAME}_SRCS  kamikaze.cc)
 
-set(${FIRMWARE_NAME}_PORT /dev/ttyACM1)            # Serial upload port
+set(${FIRMWARE_NAME}_PORT /dev/ttyACM0)            # Serial upload port
 link_directories(${CMAKE_SOURCE_DIR}/../arduino)
 set(${FIRMWARE_NAME}_NO_AUTOLIBS false)
 

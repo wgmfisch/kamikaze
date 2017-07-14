@@ -30,16 +30,22 @@ TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
-FIRE_TIME_SECS = 1.5
+FIRE_TIME_SECS = 0.5
 
-FRAME_SIZE = (1280, 720)
+FRAME_SIZE = (1920, 1080)
+_720p_FRAME_SIZE = (1280, 720)
+
 TARGET_CENTER = (FRAME_SIZE[0]//2, FRAME_SIZE[1]//2)
-TARGET_RANGE = (20, 20)
+TARGET_RANGE = (15, 15)
 TARGET_POS = (TARGET_CENTER[0] - TARGET_RANGE[0] // 2,
               TARGET_CENTER[1] - TARGET_RANGE[1] // 2)
-WIDTH = 640
-HEIGHT = 480
-FOV_IN_STEPS = int(70. / .3)
+_720p_TARGET_POS = (538, 490)
+_PARAM_TARGET_POS = (_720p_TARGET_POS[0] * FRAME_SIZE[0] // _720p_FRAME_SIZE[0],
+              _720p_TARGET_POS[1] * FRAME_SIZE[1] // _720p_FRAME_SIZE[1] + 120)
+_1080_TARGET_POS = (794, 855)
+TARGET_POS = _1080_TARGET_POS
+FOV_IN_STEPS = (int(70. / .3), 20. / (1.8 / 2.5))
+
 
 LEFT = 'left'
 RIGHT = 'right'
@@ -47,6 +53,7 @@ UP = 'up'
 DOWN = 'down'
 CALIBRATE = 'calibrate'
 FIRE = 'fire'
+MAYBE_FIRE = 'maybe-fire'
 
 MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
@@ -90,6 +97,7 @@ class Recognizer(object):
         'haarcascades/haarcascade_smile.xml')
     self.robot = robot
     self.last_action_time = time.time()
+    self.maybe_fire = 0
 
   @staticmethod
   def plot_feature(img, (x, y, w, h), color):
@@ -141,26 +149,33 @@ class Recognizer(object):
     cv2.putText(img, '%.2f fps' % (1 / (time.clock() - start_time)),
                 (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, WHITE)
     cv2.imshow('img', img)
+    if self.maybe_fire > 5:
+      actions += ((FIRE, 0),)
+      self.maybe_fire = 0
     for action in actions:
       self.do_action(*action)
     if time.time() - self.last_action_time > 30:
       self.do_action(CALIBRATE, 0)
 
-  @staticmethod
-  def determine_action(mouth_center):
-    def to_steps(pixels):
-      steps = pixels * FOV_IN_STEPS // WIDTH
+  def determine_action(self, mouth_center):
+    def to_steps(pixels, i):
+      steps = pixels * FOV_IN_STEPS[i] // FRAME_SIZE[i]
       return min(max(steps, 2), 32)
     action = ()
     if mouth_center[0] < TARGET_POS[0]:
-      action += ((LEFT, to_steps(TARGET_POS[0] - mouth_center[0])),)
+      action += ((LEFT, to_steps(TARGET_POS[0] - mouth_center[0], 0)),)
     elif mouth_center[0] > TARGET_POS[0] + TARGET_RANGE[0]:
-      action += ((RIGHT,
-                  to_steps(mouth_center[0] - TARGET_POS[0] - TARGET_RANGE[0])),)
+      action += ((RIGHT, to_steps(mouth_center[0] - TARGET_POS[0], 0)),)
     if mouth_center[1] < TARGET_POS[1]:
-      action += ((UP, 2),)
+      action += ((UP, to_steps(TARGET_POS[1] - mouth_center[1], 1)),)
     elif mouth_center[1] > TARGET_POS[1] + TARGET_RANGE[1]:
-      action += ((DOWN, 2),)
+      action += ((DOWN, to_steps(mouth_center[1] - TARGET_POS[1], 1)),)
+
+    if len(action) == 0:
+      self.maybe_fire += 1
+      action += ((MAYBE_FIRE, self.maybe_fire),)
+    else:
+      self.maybe_fire = 0
     return action
 
   @staticmethod
@@ -189,6 +204,8 @@ class Recognizer(object):
       self.robot.down(steps)
     elif dir is CALIBRATE:
       self.robot.calibrate()
+    elif dir is FIRE:
+      self.robot.fire(FIRE_TIME_SECS)
     self.last_action_time = time.time()
 
 def detect_webcam(recognizer):
@@ -216,6 +233,8 @@ def detect_webcam(recognizer):
         break
       elif key == ord('f'):
         recognizer.robot.fire(FIRE_TIME_SECS)
+      elif key == ord('c'):
+        recognizer.robot.calibrate()
     done[0] = True
   read_thread = threading.Thread(target=read_images)
   read_thread.start()
