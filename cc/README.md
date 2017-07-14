@@ -9,7 +9,7 @@ sudo apt install \
   libavcodec-dev libavformat-dev libswscale-dev \
   python-dev python-numpy \
   libtbb2 libtbb-dev \
-  libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev
+  libjpeg-dev libpng-dev libtiff-dev libdc1394-22-dev
 git clone https://github.com/opencv/opencv.git
 cd opencv
 mkdir build
