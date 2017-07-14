@@ -38,7 +38,7 @@ TARGET_POS = (TARGET_CENTER[0] - TARGET_RANGE[0] // 2,
               TARGET_CENTER[1] - TARGET_RANGE[1] // 2)
 WIDTH = 640
 HEIGHT = 480
-FOV_IN_STEPS = int(90. / .3)
+FOV_IN_STEPS = int(70. / .3)
 
 LEFT = 'left'
 RIGHT = 'right'
@@ -148,8 +148,8 @@ class Recognizer(object):
   @staticmethod
   def determine_action(mouth_center):
     def to_steps(pixels):
-      steps = pixels * FOV_IN_STEPS // WIDTH / 2
-      return min(max(steps, 4), 32)
+      steps = pixels * FOV_IN_STEPS // WIDTH
+      return min(max(steps, 2), 32)
     action = ()
     if mouth_center[0] < TARGET_POS[0]:
       action += ((LEFT, to_steps(TARGET_POS[0] - mouth_center[0])),)
@@ -157,9 +157,9 @@ class Recognizer(object):
       action += ((RIGHT,
                   to_steps(mouth_center[0] - TARGET_POS[0] - TARGET_RANGE[0])),)
     if mouth_center[1] < TARGET_POS[1]:
-      action += ((UP, 4),)
+      action += ((UP, 2),)
     elif mouth_center[1] > TARGET_POS[1] + TARGET_RANGE[1]:
-      action += ((DOWN, 4),)
+      action += ((DOWN, 2),)
     return action
 
   @staticmethod
