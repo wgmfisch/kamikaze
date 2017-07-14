@@ -18,19 +18,7 @@ const double SLOW_DOWN_FACTOR_INCREMENT = 1.49063488565;
 
 class MotorModule : public arduinoio::UCModule {
  public:
-  MotorModule() {
-    pulse_state_ = false;
-    initialized_ = false;
-    timed_callback_ = NULL;
-    max_wait_ = 8000;
-    send_done_ = false;
-
-    const int kLocalAddress = 0;
-    const int kDoneSize = 5;
-    char command[kDoneSize];
-    strncpy(command, "MDONE", kDoneSize);
-    done_message_.Reset(kLocalAddress, kDoneSize, (unsigned char*) command);
-  }
+  MotorModule() = default;
 
   virtual const arduinoio::Message* Tick() {
     if (timed_callback_ != NULL) {
@@ -111,9 +99,6 @@ class MotorModule : public arduinoio::UCModule {
       changed |= Update(command[MOVE_LENGTH + 2], &trigger_negative_pin_);
       changed |= Update(command[MOVE_LENGTH + 3], &trigger_positive_pin_);
       changed |= Update(command[MOVE_LENGTH + 4], &done_pin_);
-      if (changed) {
-        initialized_ = false;
-      }
       moving_positive_ = command[MOVE_LENGTH + 5] != 0x00;
       if (command[MOVE_LENGTH + 6] > 5) {
         max_wait_ = 8000;
@@ -128,21 +113,18 @@ class MotorModule : public arduinoio::UCModule {
       const int *temp_int_args = (const int*) (command + MOVE_LENGTH + 12);
       temp_pin_steps_ = temp_int_args[0];
       min_wait_ = 4000;
-      if (!initialized_) {
-        // Assumes the pins won't change.
+      if (changed) {
         pinMode(dir_pin, OUTPUT);
         pinMode(pulse_pin_, OUTPUT);
         pinMode(done_pin_, OUTPUT);
         pinMode(trigger_negative_pin_, INPUT_PULLUP);
         pinMode(trigger_positive_pin_, INPUT_PULLUP);
-        initialized_ = true;
       }
       digitalWrite(done_pin_, LOW);
       digitalWrite(dir_pin, moving_positive_ ? HIGH : LOW);
       current_wait_ = max_wait_;
-      timed_callback_ = new arduinoio::TimedCallback<MotorModule>(true, current_wait_,
-          this,
-          &MotorModule::StepMotor);
+      timed_callback_ = new arduinoio::TimedCallback<MotorModule>(
+          true, current_wait_, this, &MotorModule::StepMotor);
       while (!send_done_) {
         timed_callback_->Update();
       }
@@ -152,26 +134,26 @@ class MotorModule : public arduinoio::UCModule {
   }
 
  private:
-  bool pulse_state_;
+  bool pulse_state_ = false;
 
-  bool initialized_;
-  char pulse_pin_;
-  char trigger_negative_pin_;
-  char trigger_positive_pin_;
-  char done_pin_;
+  char pulse_pin_ = -1;
+  char trigger_negative_pin_ = -1;
+  char trigger_positive_pin_ = -1;
+  char done_pin_ = -1;
 
   bool moving_positive_;
   float min_wait_;
-  int max_wait_;
+  int max_wait_ = 8000;
   float current_wait_;
   int remaining_steps_;
   char temp_pin_;
   int temp_pin_steps_;
 
-  bool send_done_;
-  arduinoio::Message done_message_;
+  bool send_done_ = false;
+  const arduinoio::Message done_message_{/*address=*/0, 5,
+                                         (const unsigned char *)"MDONE"};
 
-  arduinoio::TimedCallback<MotorModule> *timed_callback_;
+  arduinoio::TimedCallback<MotorModule> *timed_callback_ = nullptr;
 };
 
 }  // namespace nebree8
