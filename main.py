@@ -32,7 +32,8 @@ WHITE = (255, 255, 255)
 
 FIRE_TIME_SECS = 1.5
 
-TARGET_CENTER = (320, 240)
+FRAME_SIZE = (1280, 720)
+TARGET_CENTER = (FRAME_SIZE[0]//2, FRAME_SIZE[1]//2)
 TARGET_RANGE = (20, 20)
 TARGET_POS = (TARGET_CENTER[0] - TARGET_RANGE[0] // 2,
               TARGET_CENTER[1] - TARGET_RANGE[1] // 2)
@@ -197,6 +198,8 @@ def detect_webcam(recognizer):
     try:
       cap = cv2.VideoCapture(FLAGS.webcam)
       assert cap.isOpened(), "Failed to open --webcam=%d" % FLAGS.webcam
+      cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_SIZE[0])
+      cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_SIZE[1])
       while not done[0]:
         _, frame = cap.read()
         latest_image.put(frame)
