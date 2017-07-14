@@ -101,9 +101,9 @@ class MotorModule : public arduinoio::UCModule {
       changed |= Update(command[MOVE_LENGTH + 4], &done_pin_);
       moving_positive_ = command[MOVE_LENGTH + 5] != 0x00;
       if (command[MOVE_LENGTH + 6] > 5) {
-        max_wait_ = 8000;
+        max_wait_ = 4000;
       } else {
-        max_wait_ = 8000;
+        max_wait_ = 4000;
       }
       send_done_ = false;
       temp_pin_ = command[MOVE_LENGTH + 7];
@@ -143,7 +143,7 @@ class MotorModule : public arduinoio::UCModule {
 
   bool moving_positive_;
   float min_wait_;
-  int max_wait_ = 8000;
+  int max_wait_ = 4000;
   float current_wait_;
   int remaining_steps_;
   char temp_pin_;
