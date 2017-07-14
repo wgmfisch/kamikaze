@@ -20,7 +20,7 @@ arduinoio::ArduinoIO arduino_io;
 void setup() {
   Serial.begin(9600);
   arduino_io.Add(new arduinoio::SerialRXModule(NULL, 0));
-  arduino_io.Add(new nebree8::BlinkModule());
+  //arduino_io.Add(new nebree8::BlinkModule());
   arduino_io.Add(new nebree8::MotorModule());
   arduino_io.Add(new nebree8::UCIOModule());
 }

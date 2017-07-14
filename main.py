@@ -30,6 +30,8 @@ TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
+FIRE_TIME_SECS = 1.5
+
 TARGET_CENTER = (320, 240)
 TARGET_RANGE = (20, 20)
 TARGET_POS = (TARGET_CENTER[0] - TARGET_RANGE[0] // 2,
@@ -43,6 +45,7 @@ RIGHT = 'right'
 UP = 'up'
 DOWN = 'down'
 CALIBRATE = 'calibrate'
+FIRE = 'fire'
 
 MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
@@ -208,6 +211,8 @@ def detect_webcam(recognizer):
         key = cv2.waitKey(0)
       if key == ord('q'):
         break
+      elif key == ord('f'):
+        recognizer.robot.fire(FIRE_TIME_SECS)
     done[0] = True
   read_thread = threading.Thread(target=read_images)
   read_thread.start()

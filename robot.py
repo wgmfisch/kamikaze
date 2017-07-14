@@ -61,13 +61,15 @@ class FakeRobot(object):
   def right(self, *args): pass
   def up(self, *args): pass
   def down(self, *args): pass
-  def calibrate(self): pass
+  def calibrate(self, *args): pass
+  def fire(self, *args):
+    print 'fire(%s)' % (', '.join(map(str, args)))
 
 class Robot(object):
   def __init__(self, port="ttyACM0"):
     self.uno = arduino.Arduino(port, baud=9600)
     time.sleep(2)
-    self.uno.Blink(13, 0.3)
+    self.__valve(False)
 
     self.horizontal_motor = Motor(
         self.uno,
@@ -85,8 +87,11 @@ class Robot(object):
         trigger_neg=7,
         home_dir=0,
         home_offset=200)
-    raw_input("Hit enter to calibrate")
-    self.calibrate()
+    answer = None
+    while answer not in ('y', 'n'):
+      answer = raw_input("Calibrate (y/n)? ").lower()
+    if answer == 'y':
+      self.calibrate()
 
   def calibrate(self):
     for motor in [self.horizontal_motor, self.vertical_motor]:
@@ -104,16 +109,30 @@ class Robot(object):
   def down(self, steps):
     self.vertical_motor.Move(not UP_DIR, steps)
 
+  def fire(self, time_secs):
+    try:
+      self.__valve(True)
+      time.sleep(time_secs)
+    finally:
+      self.__valve(False)
+
+  def __valve(self, value):
+    self.uno.WriteOutput(11, value)
+    self.uno.WriteOutput(13, value)
+
 
 if __name__ == "__main__":
-  robot = Robot("ttyACM1")
+  robot = Robot("ttyACM0")
   STEPS = 8
-  while False:
+  while True:
+    robot.uno.WriteOutput(13, True)
+    time.sleep(1)
+    robot.uno.WriteOutput(13, False)
+    time.sleep(1)
     robot.left(STEPS)
     time.sleep(.5)
     robot.right(STEPS)
     time.sleep(.5)
-  while True:
     robot.up(STEPS)
     time.sleep(.5)
     robot.down(STEPS)
