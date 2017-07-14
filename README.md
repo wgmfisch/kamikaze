@@ -4,7 +4,7 @@
 To use main.py, run:
 
 ```bash
-sudo apt install python-opencv python-pip
+sudo apt install python-opencv python-pip python-serial
 sudo pip install python-gflags six
 ```
 
