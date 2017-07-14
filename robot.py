@@ -68,7 +68,7 @@ class FakeRobot(object):
 class Robot(object):
   def __init__(self, port="ttyACM0"):
     self.uno = arduino.Arduino(port, baud=9600)
-    time.sleep(2)
+    time.sleep(2)  # Wait for serial to connect
     self.__valve(False)
 
     self.horizontal_motor = Motor(
