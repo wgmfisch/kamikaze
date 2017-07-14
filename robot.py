@@ -85,6 +85,7 @@ class Robot(object):
         trigger_neg=7,
         home_dir=0,
         home_offset=200)
+    raw_input("Hit enter to calibrate")
     self.calibrate()
 
   def calibrate(self):
