@@ -62,7 +62,7 @@ const AssertHelper &operator<<(const AssertHelper &helper, T &&msg) {
   return helper;
 }
 
-#define ASSERT(cond)                                                           \
+#define QCHECK(cond)                                                           \
   ((cond)) ? NoAssertHelper() : AssertHelper() << __FILE__ << ":" << __LINE__  \
                                                << ": " << #cond
 
@@ -87,11 +87,11 @@ public:
 
   Recognizer(Robot *robot) : robot_(robot) {
 #ifndef USE_CUDA
-    ASSERT(face_detector_->load(kFaceCascadeFile)) << " error loading "
+    QCHECK(face_detector_->load(kFaceCascadeFile)) << " error loading "
                                                   << kFaceCascadeFile;
-    ASSERT(eye_detector_->load(kEyeCascadeFile)) << " error loading "
+    QCHECK(eye_detector_->load(kEyeCascadeFile)) << " error loading "
                                                 << kEyeCascadeFile;
-    ASSERT(mouth_detector_->load(kMouthCascadeFile)) << " error loading "
+    QCHECK(mouth_detector_->load(kMouthCascadeFile)) << " error loading "
                                                     << kMouthCascadeFile;
 #endif
   }
@@ -257,6 +257,7 @@ void DetectWebcam(Recognizer *recognizer) {
 
   std::thread capture_thread([&] {
     cv::VideoCapture capture(kWebcam);
+    QCHECK(capture.isOpened()) << "Failed to open webcam #" << kWebcam;
     while (!done.load(std::memory_order_relaxed)) {
       cv::Mat image;
       if (!capture.read(image)) {

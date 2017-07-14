@@ -5,6 +5,7 @@ import threading
 import time
 import Queue
 
+import gflags
 from robot import FakeRobot, Robot
 
 try:
@@ -13,7 +14,6 @@ try:
 except:
   print 'failed to load cv2 from ', CV2_FILENAME
   import cv2
-import gflags
 
 print "cv2 =", cv2.__file__
 
@@ -57,6 +57,25 @@ def monkeypatch_nopreview():
 
 def target(img):
   print dir(img)
+
+class LatestValue(object):
+  def __init__(self):
+    self.queue = Queue.Queue(maxsize=1000)
+
+  def put(self, value):
+    try:
+      self.queue.put_nowait(value)
+    except Queue.Full:
+      pass
+
+  def get(self):
+    latest = self.queue.get()
+    while True:
+      try:
+        latest = self.queue.get_nowait()
+      except Queue.Empty:
+        break
+    return latest
 
 class Recognizer(object):
   def __init__(self, robot):
@@ -127,7 +146,6 @@ class Recognizer(object):
   def determine_action(mouth_center):
     def to_steps(pixels):
       steps = pixels * FOV_IN_STEPS // WIDTH / 2
-      print "before clamp p=%s steps=%s" % (pixels, steps)
       return min(max(steps, 4), 32)
     action = ()
     if mouth_center[0] < TARGET_POS[0]:
@@ -170,34 +188,21 @@ class Recognizer(object):
     self.last_action_time = time.time()
 
 def detect_webcam(recognizer):
-  q = Queue.Queue(maxsize=1000)
+  latest_image = LatestValue()
   done = [False]
   def read_images():
     try:
       cap = cv2.VideoCapture(FLAGS.webcam)
-      if not cap.isOpened():
-        raise RuntimeError("Failed to open camera")
+      assert cap.isOpened(), "Failed to open --webcam=%d" % FLAGS.webcam
       while not done[0]:
         _, frame = cap.read()
-        try:
-          q.put_nowait(frame)
-        except Queue.Full:
-          pass
+        latest_image.put(frame)
     finally:
       cap.release()
+      done[0] = True
   def process_images():
-    while True:
-      latest = q.get()
-      while True:
-        try:
-          latest = q.get_nowait()
-        except Queue.Empty:
-          break
-      try:
-        recognizer.detect_and_show(latest)
-      except cv2.error:
-        # Sometimes, cvtcolor fails.
-        continue
+    while not done[0]:
+      recognizer.detect_and_show(latest_image.get())
       key = cv2.waitKey(delay=1000//30)
       if key == ord('p'):
         key = cv2.waitKey(0)
@@ -206,12 +211,10 @@ def detect_webcam(recognizer):
     done[0] = True
   read_thread = threading.Thread(target=read_images)
   read_thread.start()
-  while True:
-    process_images()
-  #process_thread = threading.Thread(target=process_images)
-  #process_thread.start()
+  process_thread = threading.Thread(target=process_images)
+  process_thread.start()
   read_thread.join()
-  #process_thread.join()
+  process_thread.join()
 
 def detect_images(paths, recognizer):
   for img in paths:
