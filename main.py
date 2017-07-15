@@ -171,6 +171,8 @@ class Recognizer(object):
     shape = self.shape_predictor(gray, dlib.rectangle(
         face[0].item(), face[1].item(), (face[0] + face[2]).item(),
         (face[0] + face[3]).item()))
+    for point in shape.parts():
+      cv2.circle(img, (point.x, point.y), 1, PURPLE)
     mouth_points = shape.parts()[48:69]
     xmin = min(p.x for p in mouth_points)
     xmax = max(p.x for p in mouth_points)
