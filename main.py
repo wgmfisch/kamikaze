@@ -15,6 +15,10 @@ except:
   print 'failed to load cv2 from ', CV2_FILENAME
   import cv2
 
+import dlib
+import numpy
+from imutils import face_utils
+
 print "cv2 =", cv2.__file__
 
 gflags.DEFINE_bool('preview', True, 'Enable preview window')
@@ -23,11 +27,17 @@ gflags.DEFINE_bool('fake', True, 'Create actual robot?')
 gflags.DEFINE_string('tty', 'ttyACM0', 'TTY for the Arduino')
 FLAGS = gflags.FLAGS
 
+XML_FACE = 'haarcascades/haarcascade_frontalface_default.xml'
+XML_EYE = 'haarcascades/haarcascade_eye.xml'
+XML_SMILE = 'haarcascades/haarcascade_smile.xml'
+XML_SHAPE = 'shape_predictor_68_face_landmarks.dat'
+
 BLUE = (255, 0, 0)
 GREEN = (0, 255, 0)
 RED = (0, 0, 255)
 TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
+PURPLE = (255, 0, 255)
 WHITE = (255, 255, 255)
 
 FIRE_TIME_SECS = 0.5
@@ -90,14 +100,13 @@ class LatestValue(object):
 
 class Recognizer(object):
   def __init__(self, robot):
-    self.face_cascade = cv2.CascadeClassifier(
-        'haarcascades/haarcascade_frontalface_default.xml')
-    self.eye_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_eye.xml')
-    self.smile_cascade = cv2.CascadeClassifier(
-        'haarcascades/haarcascade_smile.xml')
+    self.face_cascade = cv2.CascadeClassifier(XML_FACE)
+    self.eye_cascade = cv2.CascadeClassifier(XML_EYE)
+    self.smile_cascade = cv2.CascadeClassifier(XML_SMILE)
     self.robot = robot
     self.last_action_time = time.time()
     self.maybe_fire = 0
+    self.shape_predictor  = dlib.shape_predictor(XML_SHAPE)
 
   @staticmethod
   def plot_feature(img, (x, y, w, h), color):
@@ -146,6 +155,7 @@ class Recognizer(object):
       actions[:] = self.determine_action(self.mouth_center(smile))
       cv2.putText(img, ' '.join('%s(%d)' % a for a in actions),
                   (0, 40), cv2.FONT_HERSHEY_PLAIN, 2, WHITE)
+      self.dlib_detect_mouth(img, gray, face)
     cv2.putText(img, '%.2f fps' % (1 / (time.clock() - start_time)),
                 (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, WHITE)
     cv2.imshow('img', img)
@@ -156,6 +166,21 @@ class Recognizer(object):
       self.do_action(*action)
     if time.time() - self.last_action_time > 30:
       self.do_action(CALIBRATE, 0)
+
+  def dlib_detect_mouth(self, img, gray, face):
+    shape = self.shape_predictor(gray, dlib.rectangle(
+        face[0].item(), face[1].item(), (face[0] + face[2]).item(),
+        (face[0] + face[3]).item()))
+    mouth_points = shape.parts()[48:69]
+    xmin = min(p.x for p in mouth_points)
+    xmax = max(p.x for p in mouth_points)
+    ymin = min(p.y for p in mouth_points)
+    ymax = max(p.y for p in mouth_points)
+    for part in shape.parts():
+      self.plot_feature(img, (xmin, ymin, xmax-xmin, ymax-ymin), PURPLE)
+    """
+    face_utils.visualize_facial_landmarks(img, numpy.array([(p.x, p.y) for p in shape.parts()], dtype=numpy.int32))
+    """
 
   def determine_action(self, mouth_center):
     def to_steps(pixels, i):
@@ -224,18 +249,20 @@ def detect_webcam(recognizer):
       cap.release()
       done[0] = True
   def process_images():
-    while not done[0]:
-      recognizer.detect_and_show(latest_image.get())
-      key = cv2.waitKey(delay=1000//30)
-      if key == ord('p'):
-        key = cv2.waitKey(0)
-      if key == ord('q'):
-        break
-      elif key == ord('f'):
-        recognizer.robot.fire(FIRE_TIME_SECS)
-      elif key == ord('c'):
-        recognizer.robot.calibrate()
-    done[0] = True
+    try:
+      while not done[0]:
+        recognizer.detect_and_show(latest_image.get())
+        key = cv2.waitKey(delay=1000//30)
+        if key == ord('p'):
+          key = cv2.waitKey(0)
+        if key == ord('q'):
+          break
+        elif key == ord('f'):
+          recognizer.robot.fire(FIRE_TIME_SECS)
+        elif key == ord('c'):
+          recognizer.robot.calibrate()
+    finally:
+      done[0] = True
   read_thread = threading.Thread(target=read_images)
   read_thread.start()
   process_thread = threading.Thread(target=process_images)
