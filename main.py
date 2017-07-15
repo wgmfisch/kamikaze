@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from collections import namedtuple
 import imp
 import threading
 import time
@@ -61,6 +62,14 @@ MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
 MAX_FACES = 1
 
+def now():
+  return time.clock()
+
+def age_ms(ts):
+  return 1000 * (now() - ts)
+
+RecognizerDecision = namedtuple('RecognizerDecision', ['timestamp', 'actions'])
+
 def monkeypatch_nopreview():
   def do_nothing(*_args, **_kwargs):
     pass
@@ -98,7 +107,7 @@ class Recognizer(object):
     self.smile_cascade = cv2.CascadeClassifier(
         'haarcascades/haarcascade_smile.xml')
     self.robot = robot
-    self.last_action_time = time.time()
+    self.last_action_time = now()
     self.maybe_fire = 0
 
   @staticmethod
@@ -119,8 +128,8 @@ class Recognizer(object):
       return dist
     return sorted(faces, key=dist)[0]
 
-  def detect_and_show(self, img):
-    start_time = time.clock()
+  def detect_and_show(self, timestamp, img):
+    start_time = now()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     self.plot_feature(img, TARGET_POS + TARGET_RANGE, TEAL)
     faces = self.face_cascade.detectMultiScale(
@@ -148,16 +157,15 @@ class Recognizer(object):
       actions[:] = self.determine_action(self.mouth_center(smile))
       cv2.putText(img, ' '.join('%s(%d)' % a for a in actions),
                   (0, 40), cv2.FONT_HERSHEY_PLAIN, 2, WHITE)
-    cv2.putText(img, '%.2f fps' % (1 / (time.clock() - start_time)),
+    cv2.putText(img, '%.0f ms' % age_ms(start_time),
                 (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, WHITE)
     cv2.imshow('img', img)
     if self.maybe_fire > 5:
       actions += ((FIRE, 0),)
       self.maybe_fire = 0
-    for action in actions:
-      self.do_action(*action)
-    if time.time() - self.last_action_time > 30:
-      self.do_action(CALIBRATE, 0)
+    if len(actions) == 0 and age_ms(self.last_action_time) > 30 * 1000:
+      actions += (CALIBRATE, 0)
+    return RecognizerDecision(timestamp=timestamp, actions=actions)
 
   def determine_action(self, mouth_center):
     def to_steps(pixels, i):
@@ -194,24 +202,26 @@ class Recognizer(object):
   def mouth_center(mouth):
     return mouth[0] + mouth[2]//2, mouth[1] + mouth[3]//2
 
-  def do_action(self, dir, steps):
+  def do_action(self, timestamp, cmd, steps):
     """action is one of the LEFT, RIGHT, UP, DOWN constants."""
-    if dir is LEFT:
+    print "cmd=%s steps=%i age=%.0f ms" % (cmd, steps, age_ms(timestamp))
+    if cmd is LEFT:
       self.robot.left(steps)
-    elif dir is RIGHT:
+    elif cmd is RIGHT:
       self.robot.right(steps)
-    elif dir is UP:
+    elif cmd is UP:
       self.robot.up(steps)
-    elif dir is DOWN:
+    elif cmd is DOWN:
       self.robot.down(steps)
-    elif dir is CALIBRATE:
+    elif cmd is CALIBRATE:
       self.robot.calibrate()
-    elif dir is FIRE:
+    elif cmd is FIRE:
       self.robot.fire(FIRE_TIME_SECS)
-    self.last_action_time = time.time()
+    self.last_action_time = now()
 
 def detect_webcam(recognizer):
   latest_image = LatestValue()
+  latest_decision = LatestValue()
   done = [False]
   def read_images():
     try:
@@ -221,29 +231,46 @@ def detect_webcam(recognizer):
       cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_SIZE[1])
       while not done[0]:
         _, frame = cap.read()
-        latest_image.put(frame)
+        latest_image.put((now(), frame))
     finally:
       cap.release()
       done[0] = True
   def process_images():
-    while not done[0]:
-      recognizer.detect_and_show(latest_image.get())
-      key = cv2.waitKey(delay=1000//30)
-      if key == ord('p'):
-        key = cv2.waitKey(0)
-      if key == ord('q'):
-        break
-      elif key == ord('f'):
-        recognizer.robot.fire(FIRE_TIME_SECS)
-      elif key == ord('c'):
-        recognizer.robot.calibrate()
-    done[0] = True
+    try:
+      while not done[0]:
+        ts, frame = latest_image.get()
+        latest_decision.put(recognizer.detect_and_show(ts, frame))
+        key = cv2.waitKey(delay=1000//30)
+        if key == ord('p'):
+          key = cv2.waitKey(0)
+        if key == ord('q'):
+          break
+        elif key == ord('f'):
+          recognizer.robot.fire(FIRE_TIME_SECS)
+        elif key == ord('c'):
+          recognizer.robot.calibrate()
+    finally:
+      done[0] = True
+  def act_loop():
+    try:
+      while not done[0]:
+        decision = latest_decision.get()
+        print 'decision age=%.0f ms', age_ms(decision.timestamp)
+        for action in decision.actions:
+          recognizer.do_action(decision.timestamp, *action)
+    finally:
+      done[0] = True
+
   read_thread = threading.Thread(target=read_images)
   read_thread.start()
   process_thread = threading.Thread(target=process_images)
   process_thread.start()
+  act_thread = threading.Thread(target=act_loop)
+  act_thread.start()
   read_thread.join()
   process_thread.join()
+  act_thread.join()
+  raw_input('Enter to exit')
 
 def detect_images(paths, recognizer):
   for img in paths:
