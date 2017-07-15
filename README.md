@@ -4,8 +4,8 @@
 To use main.py, run:
 
 ```bash
-sudo apt install python-opencv python-pip python-serial
-sudo pip install python-gflags six
+sudo apt install python-opencv python-pip python-serial guvcview
+sudo pip install python-gflags six numpy scipy scikit-image dlib boost-python imutils
 ```
 
 cc/ and arduino/ have separate setup instructions / READMEs, but unless you are
@@ -28,6 +28,7 @@ Recognition will run faster if you build OpenCV as suggested in `cc/README.md`, 
 * note that `open-mouth.*` and `train.sh` are currently unused.
 * `--nopreview`: will disable the preview window, if you want to test
   recognition speed on a corpus of images.  Abort with Ctrl-C.
+* Use `guvcview` to play with your webcam's capabilities
 
 ## To make things move
 
