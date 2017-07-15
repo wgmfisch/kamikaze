@@ -100,14 +100,12 @@ class LatestValue(object):
     return latest
 
 class Recognizer(object):
-  def __init__(self, robot):
+  def __init__(self):
     self.face_cascade = cv2.CascadeClassifier(
         'haarcascades/haarcascade_frontalface_default.xml')
     self.eye_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_eye.xml')
     self.smile_cascade = cv2.CascadeClassifier(
         'haarcascades/haarcascade_smile.xml')
-    self.robot = robot
-    self.last_action_time = now()
     self.maybe_fire = 0
 
   @staticmethod
@@ -163,8 +161,6 @@ class Recognizer(object):
     if self.maybe_fire > 5:
       actions += ((FIRE, 0),)
       self.maybe_fire = 0
-    if len(actions) == 0 and age_ms(self.last_action_time) > 30 * 1000:
-      actions += (CALIBRATE, 0)
     return RecognizerDecision(timestamp=timestamp, actions=actions)
 
   def determine_action(self, mouth_center):
@@ -202,24 +198,25 @@ class Recognizer(object):
   def mouth_center(mouth):
     return mouth[0] + mouth[2]//2, mouth[1] + mouth[3]//2
 
-  def do_action(self, timestamp, cmd, steps):
-    """action is one of the LEFT, RIGHT, UP, DOWN constants."""
-    print "cmd=%s steps=%i age=%.0f ms" % (cmd, steps, age_ms(timestamp))
-    if cmd is LEFT:
-      self.robot.left(steps)
-    elif cmd is RIGHT:
-      self.robot.right(steps)
-    elif cmd is UP:
-      self.robot.up(steps)
-    elif cmd is DOWN:
-      self.robot.down(steps)
-    elif cmd is CALIBRATE:
-      self.robot.calibrate()
-    elif cmd is FIRE:
-      self.robot.fire(FIRE_TIME_SECS)
-    self.last_action_time = now()
 
-def detect_webcam(recognizer):
+def do_action(robot, timestamp, cmd, steps):
+  """action is one of the LEFT, RIGHT, UP, DOWN constants."""
+  print "cmd=%s steps=%i age=%.0f ms" % (cmd, steps, age_ms(timestamp))
+  if cmd is LEFT:
+    robot.left(steps)
+  elif cmd is RIGHT:
+    robot.right(steps)
+  elif cmd is UP:
+    robot.up(steps)
+  elif cmd is DOWN:
+    robot.down(steps)
+  elif cmd is CALIBRATE:
+    robot.calibrate()
+  elif cmd is FIRE:
+    robot.fire(FIRE_TIME_SECS)
+  robot.last_action_time = now()
+
+def detect_webcam(robot, recognizer):
   latest_image = LatestValue()
   latest_decision = LatestValue()
   done = [False]
@@ -255,9 +252,11 @@ def detect_webcam(recognizer):
     try:
       while not done[0]:
         decision = latest_decision.get()
-        print 'decision age=%.0f ms', age_ms(decision.timestamp)
+        if (len(decision.actions) == 0 and
+            age_ms(robot.last_action_time) > 30000):
+          decision.actions += ((CALIBRATE, 0),)
         for action in decision.actions:
-          recognizer.do_action(decision.timestamp, *action)
+          do_action(robot, decision.timestamp, *action)
     finally:
       done[0] = True
 
@@ -266,11 +265,10 @@ def detect_webcam(recognizer):
   process_thread = threading.Thread(target=process_images)
   process_thread.start()
   act_thread = threading.Thread(target=act_loop)
+  act_thread.daemon = True
   act_thread.start()
   read_thread.join()
   process_thread.join()
-  act_thread.join()
-  raw_input('Enter to exit')
 
 def detect_images(paths, recognizer):
   for img in paths:
@@ -283,12 +281,14 @@ def detect_images(paths, recognizer):
 def main():
   from sys import argv
   argv = FLAGS(argv)
-  recognizer = Recognizer(FakeRobot() if FLAGS.fake else Robot(FLAGS.tty))
+  recognizer = Recognizer()
   if not FLAGS.preview:
     monkeypatch_nopreview()
   try:
     if len(argv) == 1:
-      detect_webcam(recognizer)
+      robot = FakeRobot() if FLAGS.fake else Robot(FLAGS.tty)
+      robot.last_action_time = now()
+      detect_webcam(robot, recognizer)
     else:
       detect_images(argv[1:], recognizer)
   finally:
