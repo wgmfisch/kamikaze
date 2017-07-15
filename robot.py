@@ -84,7 +84,7 @@ class Motor(object):
                   temp_pin_threshold=UC_ICE_STEPS)
 
   def Calibrate(self):
-    self.Move(self.home_dir, 1500)
+    self.Move(self.home_dir, 1500 * 16)
     self.Move(not self.home_dir, self.home_offset)
 
   def SetSpeed(self, speed):
@@ -133,7 +133,7 @@ class Robot(object):
         trigger_pos=6,
         trigger_neg=UNCONNECTED_3,
         home_dir=1,
-        home_offset=500,
+        home_offset=500 * 16,
         ms1=LEFT_RIGHT_MS1,
         ms2=LEFT_RIGHT_MS2,
         ms3=LEFT_RIGHT_MS3)
@@ -144,7 +144,7 @@ class Robot(object):
         trigger_pos=UNCONNECTED_3,
         trigger_neg=7,
         home_dir=0,
-        home_offset=200,
+        home_offset=200 * 16,
         ms1=UP_DOWN_MS1,
         ms2=UP_DOWN_MS2,
         ms3=UP_DOWN_MS3)

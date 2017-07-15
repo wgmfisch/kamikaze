@@ -31,6 +31,9 @@ YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
 FIRE_TIME_SECS = 0.5
+FOV_IN_STEPS = (int(70. / .3) * 4, 20. / (1.8 / 2.5) * 4)
+MAX_STEPS = 100 * 16
+MIN_STEPS = 4
 
 FRAME_SIZE = (1920, 1080)
 _720p_FRAME_SIZE = (1280, 720)
@@ -44,7 +47,6 @@ _PARAM_TARGET_POS = (_720p_TARGET_POS[0] * FRAME_SIZE[0] // _720p_FRAME_SIZE[0],
               _720p_TARGET_POS[1] * FRAME_SIZE[1] // _720p_FRAME_SIZE[1] + 120)
 _1080_TARGET_POS = (794, 855)
 TARGET_POS = _1080_TARGET_POS
-FOV_IN_STEPS = (int(70. / .3), 20. / (1.8 / 2.5))
 
 
 LEFT = 'left'
@@ -160,7 +162,7 @@ class Recognizer(object):
   def determine_action(self, mouth_center):
     def to_steps(pixels, i):
       steps = pixels * FOV_IN_STEPS[i] // FRAME_SIZE[i]
-      return min(max(steps, 2), 32)
+      return min(max(steps, MIN_STEPS), MAX_STEPS)
     action = ()
     if mouth_center[0] < TARGET_POS[0]:
       action += ((LEFT, to_steps(TARGET_POS[0] - mouth_center[0], 0)),)
