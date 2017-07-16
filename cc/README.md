@@ -25,7 +25,13 @@ make install
 ```
 
 Then build here with
-```
+```bash
 cmake .  # In-source build.
 make
+```
+
+Test the Arduino communication code with `robot_test`:
+```bash
+g++ -std=c++1z robot_test.cc robot.cc arduinoio.cc -o robot_test -lboost_system
+./robot_test
 ```
