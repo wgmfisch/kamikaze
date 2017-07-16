@@ -6,6 +6,7 @@ To use main.py, run:
 ```bash
 sudo apt install python-opencv python-pip python-serial
 sudo pip install python-gflags six
+sudo usermod -a -G dialout $(whoami)
 ```
 
 cc/ and arduino/ have separate setup instructions / READMEs, but unless you are
