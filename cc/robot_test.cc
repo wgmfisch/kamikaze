@@ -9,14 +9,14 @@ int main(int argc, char *argv[]) {
 
   RobotSerial robot(argv[1], 9600);
   while (true) {
-    robot.fire();
-    sleep(1);
+    robot.fire(std::chrono::milliseconds(500));
+    usleep(100);
     robot.left(100);
-    sleep(1);
+    usleep(100);
     robot.right(100);
-    sleep(1);
+    usleep(100);
     robot.up(100);
-    sleep(1);
+    usleep(100);
     robot.down(100);
   }
   return 0;

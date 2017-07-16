@@ -1,6 +1,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/serial_port.hpp>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -11,11 +12,7 @@ public:
   static constexpr Pin kUnconnected2 = 18;
   static constexpr Pin kUnconnected3 = 12;
 
-  ArduinoIO(const std::string &port, int baud_rate) {
-    serial_port_.open(port);
-    serial_port_.set_option(
-        boost::asio::serial_port_base::baud_rate(baud_rate));
-  }
+  ArduinoIO(const std::string &port, int baud_rate);
 
   void WriteOutput(Pin pin, bool value);
 
@@ -42,6 +39,8 @@ private:
 
   boost::asio::io_service io_;
   boost::asio::serial_port serial_port_{io_};
+  std::mutex mu_;
+  std::chrono::time_point<std::chrono::high_resolution_clock> last_message_;
 };
 
 struct Motor {
