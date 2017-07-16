@@ -27,6 +27,9 @@ constexpr char kFaceCascadeFile[] =
 constexpr char kEyeCascadeFile[] = "../haarcascades/haarcascade_eye.xml";
 constexpr char kMouthCascadeFile[] = "../haarcascades/haarcascade_smile.xml";
 static const cv::Size kMinFaceSize(20, 20);
+static const auto kMinTimeBetweenFire = std::chrono::seconds(5);
+static const auto kFireTime = std::chrono::milliseconds(500);
+static const int kMinConsecutiveOnTargetToFire = 10;
 
 #define FIND_EYES 0
 
@@ -108,7 +111,7 @@ void DoAction(Action action, Robot *robot) {
     robot->up(action.steps);
     return;
   case Action::FIRE:
-    robot->fire();
+    robot->fire(kFireTime);
     return;
   }
 }
@@ -179,7 +182,10 @@ public:
       actions.emplace_back(vec.y < 0 ? Action::DOWN : Action::UP, abs(vec.y));
       maybe_fire_ = 0;
     } else {
-      if (++maybe_fire_ > 50) {
+      auto fire_time = now();
+      if (++maybe_fire_ > kMinConsecutiveOnTargetToFire &&
+          fire_time - last_fire_ > kMinTimeBetweenFire) {
+        last_fire_ = fire_time;
         actions.emplace_back(Action::FIRE, 0);
         maybe_fire_ = 0;
       }
@@ -219,10 +225,9 @@ public:
     if (timestamp <= last_action_) {
       return;
     }
-    // cv::Mat gray;
     cv::cvtColor(input_img, gray_, cv::COLOR_BGR2GRAY);
-    // gray_ = gray;
-    std::ostringstream action_str;
+    std::ostringstream line1;
+    std::ostringstream line2;
     auto faces =
         DetectMultiScale(face_detector_.get(), gray_, 1.3, 5, kMinFaceSize);
     for (const cv::Rect& face : faces) {
@@ -234,17 +239,19 @@ public:
       PlotFeature(input_img, mouth, kYellow);
       for (Action action : DetermineAction(input_img, Center(mouth))) {
         DoAction(action, robot_);
-        action_str << action << " ";
+        line2 << action << " ";
+      }
+      if (maybe_fire_ > 0) {
+        line2 << "maybe_fire(" << maybe_fire_ << ")";
       }
     }
     last_action_ = now();
-    std::ostringstream duration_str;
-    duration_str << "latency "
-                 << ((last_action_ - timestamp) / std::chrono::milliseconds(1))
-                 << " ms";
-    cv::putText(input_img, duration_str.str(), cv::Point(0, 20),
+    line1 << "latency "
+          << ((last_action_ - timestamp) / std::chrono::milliseconds(1))
+          << " ms";
+    cv::putText(input_img, line1.str(), cv::Point(0, 20),
                 cv::FONT_HERSHEY_PLAIN, 1, kWhite);
-    cv::putText(input_img, action_str.str(), cv::Point(0, 40),
+    cv::putText(input_img, line2.str(), cv::Point(0, 40),
                 cv::FONT_HERSHEY_PLAIN, 2, kWhite);
     cv::imshow("img", input_img);
   }
@@ -257,6 +264,7 @@ private:
   Mat gray_;
   Robot *robot_;
   time_point last_action_;
+  time_point last_fire_;
 #ifdef USE_CUDA
   cv::Ptr<cv::cuda::CascadeClassifier> face_detector_ =
       cv::cuda::CascadeClassifier::create(kFaceCascadeFile);

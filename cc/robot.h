@@ -15,7 +15,7 @@ public:
   virtual void down(int steps) = 0;
   virtual void left(int steps) = 0;
   virtual void right(int steps) = 0;
-  virtual void fire() = 0;
+  virtual void fire(std::chrono::milliseconds time) = 0;
 };
 
 class RobotSerial final : public Robot {
@@ -27,9 +27,9 @@ public:
   void down(int steps) final { UD_.Move(Motor::DOWN, steps, &io_); }
   void left(int steps) final { LR_.Move(Motor::LEFT, steps, &io_); }
   void right(int steps) final { LR_.Move(Motor::RIGHT, steps, &io_); }
-  void fire() final {
+  void fire(std::chrono::milliseconds time) final {
     valve(true);
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(time);
     valve(false);
   }
 
@@ -49,5 +49,7 @@ public:
   void down(int) final {}
   void left(int) final {}
   void right(int) final {}
-  void fire() final {}
+  void fire(std::chrono::milliseconds time) final {
+    std::this_thread::sleep_for(time);
+  }
 };
