@@ -10,6 +10,7 @@
 #include <gflags/gflags.h>
 
 #include "logging.h"
+#include "operators.h"
 #include "robot.h"
 
 //#define USE_CUDA 1
@@ -40,48 +41,11 @@ static const cv::Scalar kTeal(255, 255, 0);
 static const cv::Scalar kYellow(0, 255, 255);
 static const cv::Scalar kWhite(255, 255, 255);
 
-static const cv::Point kImageSize(640, 480);
-static const cv::Point kTarget(320, 240);
+static const cv::Point kImageSize(1280, 720);
+static const cv::Point kTarget = kImageSize / 2;
 static const cv::Point kFovInSteps(200, 100);
 static const int kTargetSize = 20;
 static const int kMinStep = 4;
-
-cv::Size operator/(cv::Size s, int d) {
-  s.width /= d;
-  s.height /= d;
-  return s;
-}
-
-cv::Point operator+(cv::Point p, cv::Size s) {
-  p.x += s.width;
-  p.y += s.height;
-  return p;
-}
-
-cv::Point operator-(cv::Point p, int scalar) {
-  p.x -= scalar;
-  p.y -= scalar;
-  return p;
-}
-
-#define POINT_OP(OP)                                                           \
-  cv::Point operator OP(cv::Point l, cv::Point r) {                            \
-    return {l.x OP r.x, l.y OP r.y};                                           \
-  }
-
-POINT_OP(/);
-POINT_OP(+);
-POINT_OP(-);
-POINT_OP(*);
-#undef POINT_OP
-
-cv::Point Center(cv::Rect r) {
-  return r.tl() + r.size() / 2;
-}
-
-double sqdist(cv::Point a, cv::Point b) {
-  return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
-}
 
 const char *kActionNames[] = {"LEFT", "RIGHT", "DOWN", "UP", "FIRE"};
 struct Action {
@@ -166,8 +130,10 @@ public:
 
   std::vector<Action> DetermineAction(cv::Mat &input_img,
                                       const cv::Point &mouth) {
-    QCHECK(input_img.rows == kImageSize.y);
-    QCHECK(input_img.cols == kImageSize.x);
+    QCHECK(input_img.rows == kImageSize.y)
+        << "rows=" << input_img.rows << " expected_height=" << kImageSize.y;
+    QCHECK(input_img.cols == kImageSize.x) << "cols=" << input_img.cols
+                                           << " expected_with=" << kImageSize.x;
     constexpr int kTargetSize = 20;
     const cv::Rect target(kTarget - kTargetSize / 2,
                           cv::Size(kTargetSize, kTargetSize));
@@ -299,7 +265,7 @@ void DetectWebcam(Recognizer *recognizer) {
   bool latest_image_ready = false;
 
   std::thread capture_thread([&] {
-    cv::VideoCapture capture(FLAGS_webcam);
+    cv::VideoCapture capture{FLAGS_webcam};
     QCHECK(capture.isOpened()) << "Failed to open --webcam=" << FLAGS_webcam;
     // A return value of false doesn't mean the prop set failed!
     QCHECK(capture.set(cv::CAP_PROP_FRAME_WIDTH, kImageSize.x) || true)
