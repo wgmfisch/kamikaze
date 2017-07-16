@@ -4,7 +4,7 @@ import threading
 import time
 import Queue
 
-from arduinoio import serial_control
+import serial_control
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,71 +36,11 @@ class Arduino:
       print "Error, aurdino signal_refresh queue full."
       pass
 
-  def WriteServo(self, pin, start_degrees, end_degrees, seconds):
-    raw_message = [chr(pin), chr(start_degrees), chr(end_degrees), chr(seconds)]
-    command = "SERVO" + "".join(raw_message)
-    self.interface.Write(0, command)
-    print "set servo"
-
   def Blink(self, pin, seconds):
     centi_secs = int(round(seconds * 10))
     raw_message = [chr(pin), chr(centi_secs)]
     command = "BLINK" + "".join(raw_message)
     self.interface.Write(0, command)
-
-  def WriteDelay(self, pin, on, seconds):
-    pin = pin.value - 2000
-    self.WriteDelayRaw(pin, on, seconds)
-
-  def WriteDelayRaw(self, pin, on, seconds):
-    centi_secs = int(round(seconds * 10))
-    print pin
-    print on
-    print centi_secs
-    raw_message = [chr(pin), chr(on), chr(centi_secs)]
-    command = "DELAY" + "".join(raw_message)
-    self.interface.Write(0, command)
-
-  def HoldPressure(self, pressure_valve_pin, hold=True):
-    min_pressure_psi = 15.8
-    max_pressure_psi = 16.1
-    min_pressure_mbar = min_pressure_psi * 1014 / 14.7
-    max_pressure_mbar = max_pressure_psi * 1014 / 14.7
-    raw_message = []
-    raw_message.extend(struct.unpack('4B', struct.pack('<f',
-                                                       min_pressure_mbar)))
-    raw_message.extend(struct.unpack('4B', struct.pack('<f',
-                                                       max_pressure_mbar)))
-    raw_message = [chr(x) for x in raw_message]
-    raw_message.extend((chr(hold), chr(pressure_valve_pin)))
-    command = "HOLDP" + "".join(raw_message)
-    self.signal_refresh.put((True, command), block=True, timeout=None)
-
-  def SetLed(self, x, y, red, green, blue):
-    raw_message = [red, green, blue]
-    raw_message.extend(struct.unpack('4B', struct.pack('<f', x)))
-    raw_message.extend(struct.unpack('4B', struct.pack('<f', y)))
-    raw_message = [chr(x) for x in raw_message]
-    command = "ONE_LED" + "".join(raw_message)
-    self.signal_refresh.put((True, command), block=True, timeout=None)
-
-  def AllLed(self, red, green, blue):
-    raw_message = [red, green, blue]
-    raw_message = [chr(x) for x in raw_message]
-    command = "ALL_LED" + "".join(raw_message)
-    self.signal_refresh.put((True, command), block=True, timeout=None)
-
-  def UpdateLeds(self):
-    command = "LED_GO"
-    self.signal_refresh.put((True, command), block=True, timeout=None)
-
-  def Servo(self, servo_pin, servo_degrees):
-    raw_message = []
-    raw_message.extend((servo_pin, servo_degrees))
-    raw_message = [chr(x) for x in raw_message]
-    command = "SERV" + "".join(raw_message)
-    print "Servo command: %s" % [ord(x) for x in raw_message]
-    self.signal_refresh.put((True, command), block=True, timeout=None)
 
   def Move(self, stepper_dir_pin, stepper_pulse_pin, negative_trigger_pin,
            positive_trigger_pin, done_pin, forward, steps, final_wait,
@@ -157,12 +97,6 @@ class Arduino:
       except Queue.Empty:
         # No refresh signals for a while, Refresh all pins
         self.__SendOutputsMessage()
-      message = None  #self.interface.Read(no_checksums=True)
-      if message:
-        try:
-          self.incoming_messages.put((False, None), block=False, timeout=None)
-        except Queue.Full:
-          pass
 
 
 def main():
@@ -176,19 +110,6 @@ def main():
         time.sleep(1.0)
     time.sleep(5)
     print "should be done"
-
-  # end = 160
-  # middle = 100
-  # ts = 3
-  # arduino.WriteServo(22, end, middle, ts)
-  # arduino.WriteServo(21, 180, 90, ts)
-  # time.sleep(10)
-  # print "should be done"
-  # time.sleep(2)
-  # arduino.WriteServo(22, 90, 180, ts)
-  # arduino.WriteServo(21, 90, 180, ts)
-  # time.sleep(10)
-  # print "should be done"
 
 
 if __name__ == "__main__":
