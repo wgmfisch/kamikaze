@@ -39,8 +39,9 @@ static const cv::Scalar kWhite(255, 255, 255);
 
 static const cv::Point kImageSize(640, 480);
 static const cv::Point kTarget(320, 240);
-static const cv::Point kFovInSteps(400, 200);
+static const cv::Point kFovInSteps(200, 100);
 static const int kTargetSize = 20;
+static const int kMinStep = 4;
 
 cv::Size operator/(cv::Size s, int d) {
   s.width /= d;
@@ -157,14 +158,17 @@ public:
     PlotFeature(input_img, target, kTeal);
     auto vec = (kTarget - mouth) * kFovInSteps / kImageSize;
     std::vector<Action> actions;
-    if (abs(vec.x) > abs(vec.y) && abs(vec.x) > 1) {
+    if (abs(vec.x) > abs(vec.y) && abs(vec.x) > 4) {
       actions.emplace_back(vec.x < 0 ? Action::RIGHT : Action::LEFT,
                            abs(vec.x));
-    } else if (abs(vec.y) > 1) {
+      maybe_fire_ = 0;
+    } else if (abs(vec.y) > 4) {
       actions.emplace_back(vec.y < 0 ? Action::DOWN : Action::UP, abs(vec.y));
+      maybe_fire_ = 0;
     } else {
       if (++maybe_fire_ > 50) {
         actions.emplace_back(Action::FIRE, 0);
+        maybe_fire_ = 0;
       }
     }
     return actions;
