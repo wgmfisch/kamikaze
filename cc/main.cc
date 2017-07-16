@@ -7,6 +7,8 @@
 #include <thread>
 #include <vector>
 
+#include <gflags/gflags.h>
+
 #include "logging.h"
 #include "robot.h"
 
