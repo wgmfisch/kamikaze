@@ -121,6 +121,6 @@ void ArduinoIO::SendMessage(std::string command) {
 void ArduinoIO::WriteOutput(Pin pin, bool value) {
   std::string command = "SET_IO";
   command.insert(command.end(), pin);
-  command.insert(command.end(), value);
+  command.insert(command.end(), value? 1 : 0);
   SendMessage(command);
 }

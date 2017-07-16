@@ -56,10 +56,18 @@ struct Motor {
 
   enum : bool { RIGHT = 0, LEFT = 1, UP = 0, DOWN = 1 };
 
-  void Init(ArduinoIO* io) {
-    io->WriteOutput(ms1, 1);
-    io->WriteOutput(ms2, 1);
-    io->WriteOutput(ms3, 1);
+  enum Speed : char {
+    FULL = 0,
+    HALF = 1,
+    QUARTER = 2,
+    EIGHTH = 3,
+    SIXTEENTH = 7
+  };
+
+  void SetSpeed(Speed s, ArduinoIO *io) {
+    io->WriteOutput(ms1, s & 1);
+    io->WriteOutput(ms2, s & 2);
+    io->WriteOutput(ms3, s & 4);
   }
 
   void Move(bool forward, int steps, ArduinoIO* io) {
