@@ -37,6 +37,11 @@ static const cv::Scalar kTeal(255, 255, 0);
 static const cv::Scalar kYellow(0, 255, 255);
 static const cv::Scalar kWhite(255, 255, 255);
 
+static const cv::Point kImageSize(640, 480);
+static const cv::Point kTarget(320, 240);
+static const cv::Point kFovInSteps(400, 200);
+static const int kTargetSize = 20;
+
 cv::Size operator/(cv::Size s, int d) {
   s.width /= d;
   s.height /= d;
@@ -48,6 +53,23 @@ cv::Point operator+(cv::Point p, cv::Size s) {
   p.y += s.height;
   return p;
 }
+
+cv::Point operator-(cv::Point p, int scalar) {
+  p.x -= scalar;
+  p.y -= scalar;
+  return p;
+}
+
+#define POINT_OP(OP)                                                           \
+  cv::Point operator OP(cv::Point l, cv::Point r) {                            \
+    return {l.x OP r.x, l.y OP r.y};                                           \
+  }
+
+POINT_OP(/);
+POINT_OP(+);
+POINT_OP(-);
+POINT_OP(*);
+#undef POINT_OP
 
 const char *kActionNames[] = {"LEFT", "RIGHT", "DOWN", "UP", "FIRE"};
 struct Action {
@@ -125,25 +147,26 @@ public:
     return mouth.tl() + mouth.size() / 2;
   }
 
-  static std::vector<Action> DetermineAction(cv::Mat &input_img,
+  std::vector<Action> DetermineAction(cv::Mat &input_img,
                                              const cv::Point &mouth) {
+    QCHECK(input_img.rows == kImageSize.y);
+    QCHECK(input_img.cols == kImageSize.x);
     constexpr int kTargetSize = 20;
-    const cv::Rect target(cv::Point((input_img.cols - kTargetSize) / 2,
-                                    (input_img.rows - kTargetSize) / 2),
+    const cv::Rect target(kTarget - kTargetSize / 2,
                           cv::Size(kTargetSize, kTargetSize));
     PlotFeature(input_img, target, kTeal);
+    auto vec = (kTarget - mouth) * kFovInSteps / kImageSize;
     std::vector<Action> actions;
-    if (mouth.x < target.x)
-      actions.emplace_back(Action::LEFT, 50);
-    else if (mouth.x > target.x + target.width)
-      actions.emplace_back(Action::RIGHT, 50);
-    if (mouth.y < target.y)
-      actions.emplace_back(Action::UP, 50);
-    else if (mouth.y > target.y + target.height)
-      actions.emplace_back(Action::DOWN, 50);
-    std::sort(
-        actions.begin(), actions.end(),
-        [](const Action &a, const Action &b) { return a.steps > b.steps; });
+    if (abs(vec.x) > abs(vec.y) && abs(vec.x) > 1) {
+      actions.emplace_back(vec.x < 0 ? Action::RIGHT : Action::LEFT,
+                           abs(vec.x));
+    } else if (abs(vec.y) > 1) {
+      actions.emplace_back(vec.y < 0 ? Action::DOWN : Action::UP, abs(vec.y));
+    } else {
+      if (++maybe_fire_ > 50) {
+        actions.emplace_back(Action::FIRE, 0);
+      }
+    }
     return actions;
   }
 
@@ -221,7 +244,10 @@ public:
     cv::imshow("img", input_img);
   }
 
+  Robot *robot() { return robot_; }
+
 private:
+  int maybe_fire_ = 0;
   Mat img_;
   Mat gray_;
   Robot *robot_;
@@ -295,6 +321,24 @@ void DetectWebcam(Recognizer *recognizer) {
       key = cv::waitKey(1000 / 30);
       while (key == 'p')
         key = cv::waitKey(0); // Wait for another key to be pressed.
+      const int kManualMove = kFovInSteps.x / 4;
+      switch (key) {
+      case 'w':
+        DoAction({Action::UP, kManualMove}, recognizer->robot());
+        break;
+      case 'a':
+        DoAction({Action::LEFT, kManualMove}, recognizer->robot());
+        break;
+      case 's':
+        DoAction({Action::DOWN, kManualMove}, recognizer->robot());
+        break;
+      case 'd':
+        DoAction({Action::RIGHT, kManualMove}, recognizer->robot());
+        break;
+      case 'f':
+        DoAction({Action::FIRE, 0}, recognizer->robot());
+        break;
+      }
     }
     done = true;
   });

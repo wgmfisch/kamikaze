@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <thread>
 #include <boost/asio.hpp>
 #include <boost/asio/serial_port.hpp>
 
@@ -17,17 +18,7 @@ public:
         boost::asio::serial_port_base::baud_rate(baud_rate));
   }
 
-  void SendMessage(const std::string& command) {
-    boost::asio::write(serial_port_,
-                       boost::asio::buffer(Encode(command)));
-  }
-
-  void WriteOutput(Pin pin, bool value) {
-    std::string command = "SET_IO";
-    command.insert(command.end(), pin);
-    command.insert(command.end(), value);
-    SendMessage(command);
-  }
+  void WriteOutput(Pin pin, bool value);
 
   struct MoveCmd {
     Pin dir_pin;
@@ -50,26 +41,7 @@ public:
   }
 
 private:
-  std::string Encode(const std::string& command) {
-    const char address = 0;
-    const char addr_size = 1;
-    const char timeout = 0;
-    std::ostringstream buf;
-    buf << addr_size << char(command.size()) << timeout << address << command;
-    char chk1 = 0;
-    char chk2 = 0;
-    for (char c : buf.str()) {
-      chk1 += c;
-      chk2 += chk1;
-    }
-    buf << chk2 << chk1;
-    for (char c : buf.str()) {
-      if (isprint(c)) std::cout << c;
-      else std::cout << '\\' << uint16_t(uint8_t(c));
-    }
-    std::cout << std::endl;
-    return buf.str();
-  }
+  void SendMessage(std::string command);
 
   boost::asio::io_service io_;
   boost::asio::serial_port serial_port_{io_};
