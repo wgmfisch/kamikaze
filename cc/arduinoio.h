@@ -84,6 +84,12 @@ struct Motor {
 
   enum : bool { RIGHT = 0, LEFT = 1, UP = 0, DOWN = 1 };
 
+  void Init(ArduinoIO* io) {
+    io->WriteOutput(ms1, 1);
+    io->WriteOutput(ms2, 1);
+    io->WriteOutput(ms3, 1);
+  }
+
   void Move(bool forward, int steps, ArduinoIO* io) {
     cmd.forward = forward;
     cmd.steps = steps;

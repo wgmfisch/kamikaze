@@ -63,14 +63,19 @@ void DoAction(Action action, Robot* robot) {
   switch (action.cmd) {
     case Action::LEFT:
       robot->left(action.steps);
+      return;
     case Action::RIGHT:
       robot->right(action.steps);
+      return;
     case Action::DOWN:
       robot->down(action.steps);
+      return;
     case Action::UP:
       robot->up(action.steps);
+      return;
     case Action::FIRE:
       robot->fire();
+      return;
   }
 }
 
@@ -129,13 +134,13 @@ public:
     PlotFeature(input_img, target, kTeal);
     std::vector<Action> actions;
     if (mouth.x < target.x)
-      actions.emplace_back(Action::LEFT, 4);
+      actions.emplace_back(Action::LEFT, 50);
     else if (mouth.x > target.x + target.width)
-      actions.emplace_back(Action::RIGHT, 4);
+      actions.emplace_back(Action::RIGHT, 50);
     if (mouth.y < target.y)
-      actions.emplace_back(Action::UP, 4);
+      actions.emplace_back(Action::UP, 50);
     else if (mouth.y > target.y + target.height)
-      actions.emplace_back(Action::DOWN, 4);
+      actions.emplace_back(Action::DOWN, 50);
     std::sort(
         actions.begin(), actions.end(),
         [](const Action &a, const Action &b) { return a.steps > b.steps; });

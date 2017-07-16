@@ -1,6 +1,6 @@
 #include "robot.h"
 
-RobotSerial::RobotSerial(const std::string& tty, int baud) : io_(tty, baud) {
+RobotSerial::RobotSerial(const std::string &tty, int baud) : io_(tty, baud) {
   valve(false);
 
   LR_.cmd.dir_pin = 3;
@@ -22,7 +22,9 @@ RobotSerial::RobotSerial(const std::string& tty, int baud) : io_(tty, baud) {
   UD_.ms1 = 8;
   UD_.ms2 = 9;
   UD_.ms3 = 10;
+
+  LR_.Init(&io_);
+  UD_.Init(&io_);
 }
 
-RobotSerial::~RobotSerial() {
-}
+RobotSerial::~RobotSerial() {}
