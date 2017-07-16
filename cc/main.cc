@@ -72,6 +72,14 @@ POINT_OP(-);
 POINT_OP(*);
 #undef POINT_OP
 
+cv::Point Center(cv::Rect r) {
+  return r.tl() + r.size() / 2;
+}
+
+double sqdist(cv::Point a, cv::Point b) {
+  return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+}
+
 const char *kActionNames[] = {"LEFT", "RIGHT", "DOWN", "UP", "FIRE"};
 struct Action {
   enum ActionEnum { LEFT, RIGHT, DOWN, UP, FIRE };
@@ -81,6 +89,9 @@ struct Action {
   ActionEnum cmd;
   int steps;
 };
+
+using time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
+time_point now() { return std::chrono::high_resolution_clock::now(); }
 
 void DoAction(Action action, Robot *robot) {
   switch (action.cmd) {
@@ -118,10 +129,6 @@ public:
 #ifndef USE_CUDA
     QCHECK(face_detector_->load(kFaceCascadeFile))
         << " error loading " << kFaceCascadeFile;
-    QCHECK(eye_detector_->load(kEyeCascadeFile))
-        << " error loading " << kEyeCascadeFile;
-    QCHECK(mouth_detector_->load(kMouthCascadeFile))
-        << " error loading " << kMouthCascadeFile;
 #endif
   }
 
@@ -144,8 +151,14 @@ public:
     return best;
   }
 
-  static cv::Point MouthCenter(const cv::Rect &mouth) {
-    return mouth.tl() + mouth.size() / 2;
+  static cv::Rect BestFace(std::vector<cv::Rect> &faces) {
+    cv::Rect best_face = faces[0];
+    for (const cv::Rect& face : faces) {
+      if (sqdist(Center(face), kTarget) < sqdist(Center(best_face), kTarget)) {
+        best_face = face;
+      }
+    }
+    return best_face;
   }
 
   std::vector<Action> DetermineAction(cv::Mat &input_img,
@@ -202,45 +215,33 @@ public:
     return rects;
   }
 
-  void Detect(cv::Mat &input_img) {
+  void Detect(time_point timestamp, cv::Mat &input_img) {
+    if (timestamp <= last_action_) {
+      return;
+    }
     // cv::Mat gray;
     cv::cvtColor(input_img, gray_, cv::COLOR_BGR2GRAY);
     // gray_ = gray;
-    auto start_time = std::chrono::high_resolution_clock::now();
     std::ostringstream action_str;
-    for (auto &face :
-         DetectMultiScale(face_detector_.get(), gray_, 1.3, 5, kMinFaceSize)) {
+    auto faces =
+        DetectMultiScale(face_detector_.get(), gray_, 1.3, 5, kMinFaceSize);
+    for (const cv::Rect& face : faces) {
       PlotFeature(input_img, face, kBlue);
-      PlotFeature(input_img, GuessMouthLocation(face), kYellow);
-      if (FIND_EYES) {
-        for (cv::Rect &eye :
-             DetectMultiScale(eye_detector_.get(), gray_(face))) {
-          eye += face.tl();
-          PlotFeature(input_img, eye, kGreen);
-        }
-      }
-      const cv::Rect mouth_roi(cv::Point(face.x, face.y + 2 * face.height / 3),
-                               cv::Size(face.width, face.height / 3));
-      std::vector<cv::Rect> mouths =
-          DetectMultiScale(mouth_detector_.get(), gray_(mouth_roi));
-      for (cv::Rect &mouth : mouths) { // Convert mouths to img space.
-        mouth += mouth_roi.tl();
-        PlotFeature(input_img, mouth, kRed);
-      }
-      if (mouths.empty()) {
-        mouths.push_back(GuessMouthLocation(face));
-      }
-      for (Action action :
-           DetermineAction(input_img, MouthCenter(BestMouth(mouths)))) {
+    }
+    if (!faces.empty()) {
+      auto face = BestFace(faces);
+      cv::Rect mouth = GuessMouthLocation(face);
+      PlotFeature(input_img, mouth, kYellow);
+      for (Action action : DetermineAction(input_img, Center(mouth))) {
         DoAction(action, robot_);
         action_str << action << " ";
       }
-      break;
     }
-    auto end_time = std::chrono::high_resolution_clock::now();
+    last_action_ = now();
     std::ostringstream duration_str;
-    duration_str << (std::chrono::duration<float>(1) / (end_time - start_time))
-                 << " fps";
+    duration_str << "latency "
+                 << ((last_action_ - timestamp) / std::chrono::milliseconds(1))
+                 << " ms";
     cv::putText(input_img, duration_str.str(), cv::Point(0, 20),
                 cv::FONT_HERSHEY_PLAIN, 1, kWhite);
     cv::putText(input_img, action_str.str(), cv::Point(0, 40),
@@ -255,19 +256,12 @@ private:
   Mat img_;
   Mat gray_;
   Robot *robot_;
+  time_point last_action_;
 #ifdef USE_CUDA
   cv::Ptr<cv::cuda::CascadeClassifier> face_detector_ =
       cv::cuda::CascadeClassifier::create(kFaceCascadeFile);
-  cv::Ptr<cv::cuda::CascadeClassifier> eye_detector_ =
-      cv::cuda::CascadeClassifier::create(kEyeCascadeFile);
-  cv::Ptr<cv::cuda::CascadeClassifier> mouth_detector_ =
-      cv::cuda::CascadeClassifier::create(kMouthCascadeFile);
 #else
   std::unique_ptr<cv::CascadeClassifier> face_detector_{
-      new cv::CascadeClassifier};
-  std::unique_ptr<cv::CascadeClassifier> eye_detector_{
-      new cv::CascadeClassifier};
-  std::unique_ptr<cv::CascadeClassifier> mouth_detector_{
       new cv::CascadeClassifier};
 #endif
 };
@@ -281,7 +275,7 @@ void DetectImages(Recognizer *recognizer, int argc, char **argv) {
       std::cerr << "error reading image " << argv[i] << std::endl;
       continue;
     }
-    recognizer->Detect(image);
+    recognizer->Detect(now(), image);
     if (cv::waitKey(0) == 'q')
       break;
   }
@@ -290,7 +284,7 @@ void DetectImages(Recognizer *recognizer, int argc, char **argv) {
 void DetectWebcam(Recognizer *recognizer) {
   std::mutex mu;
   std::condition_variable latest_image_cv;
-  cv::Mat latest_image;
+  std::pair<time_point, cv::Mat> latest_image;
   std::atomic<bool> done(false);
   bool latest_image_ready = false;
 
@@ -299,12 +293,18 @@ void DetectWebcam(Recognizer *recognizer) {
     QCHECK(capture.isOpened()) << "Failed to open --webcam=" << FLAGS_webcam;
     while (!done.load(std::memory_order_relaxed)) {
       cv::Mat image;
-      if (!capture.read(image)) {
-        std::cerr << "error reading from --webcam=" << FLAGS_webcam
+      if (!capture.grab()) {  // Defer decoding until after we calculate the timestamp.
+        std::cerr << "error grabbing from --webcam=" << FLAGS_webcam
                   << std::endl;
       } else {
+        time_point capture_time = now();
+        if (!capture.retrieve(image)) {
+          std::cerr << "error retrieving from --webcam=" << FLAGS_webcam
+                    << std::endl;
+        }
         std::unique_lock<std::mutex> lock(mu);
-        latest_image = image;
+        latest_image.first = capture_time;
+        latest_image.second = image;
         latest_image_ready = true;
         lock.unlock();
         latest_image_cv.notify_one();
@@ -313,15 +313,16 @@ void DetectWebcam(Recognizer *recognizer) {
   });
 
   std::thread detect_thread([&] {
+    time_point timestamp;
     cv::Mat image;
     for (int key = 0; key != 'q';) {
       {
         std::unique_lock<std::mutex> lock(mu);
         latest_image_cv.wait(lock, [&] { return latest_image_ready; });
-        image = latest_image;
+        std::tie(timestamp, image) = std::move(latest_image);
         latest_image_ready = false;
       }
-      recognizer->Detect(image);
+      recognizer->Detect(timestamp, image);
       key = cv::waitKey(1000 / 30);
       while (key == 'p')
         key = cv::waitKey(0); // Wait for another key to be pressed.
