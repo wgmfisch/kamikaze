@@ -45,11 +45,13 @@ private:
 };
 
 struct Motor {
+  ArduinoIO &io;
   ArduinoIO::MoveCmd cmd;
 
   ArduinoIO::Pin ms1;
   ArduinoIO::Pin ms2;
   ArduinoIO::Pin ms3;
+
 
   enum : bool { RIGHT = 0, LEFT = 1, UP = 0, DOWN = 1 };
 
@@ -61,32 +63,32 @@ struct Motor {
     SIXTEENTH = 7
   };
 
-  void SetSpeed(Speed s, ArduinoIO *io) {
-    io->WriteOutput(ms1, s & 1);
-    io->WriteOutput(ms2, s & 2);
-    io->WriteOutput(ms3, s & 4);
+  void SetSpeed(Speed s) {
+    io.WriteOutput(ms1, s & 1);
+    io.WriteOutput(ms2, s & 2);
+    io.WriteOutput(ms3, s & 4);
   }
 
-  void Move(bool forward, int steps, ArduinoIO *io) {
+  void Move(bool forward, int steps) {
     cmd.forward = forward;
     cmd.steps = steps;
-    io->Move(cmd);
+    io.Move(cmd);
   }
 
-  void MoveAndSetSpeed(bool forward, Speed speed, int steps, ArduinoIO *io) {
-    SetSpeed(speed, io);
-    Move(forward, steps, io);
+  void MoveAndSetSpeed(bool forward, Speed speed, int steps) {
+    SetSpeed(speed);
+    Move(forward, steps);
   }
 
-  void MoveAutoSpeed(bool forward, int steps, ArduinoIO *io) {
+  void MoveAutoSpeed(bool forward, int steps) {
     const int kCoarseness = 256;
     for (Speed speed : {SIXTEENTH, EIGHTH, QUARTER, HALF}) {
       if (steps < kCoarseness) {
-        MoveAndSetSpeed(forward, speed, steps, io);
+        MoveAndSetSpeed(forward, speed, steps);
         return;
       }
       steps >>= 1;
     }
-    MoveAndSetSpeed(forward, FULL, steps, io);
+    MoveAndSetSpeed(forward, FULL, steps);
   }
 };

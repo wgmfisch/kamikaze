@@ -23,8 +23,8 @@ RobotSerial::RobotSerial(const std::string &tty, int baud) : io_(tty, baud) {
   UD_.ms2 = 9;
   UD_.ms3 = 10;
 
-  LR_.SetSpeed(Motor::SIXTEENTH, &io_);
-  UD_.SetSpeed(Motor::SIXTEENTH, &io_);
+  LR_.SetSpeed(Motor::SIXTEENTH);
+  UD_.SetSpeed(Motor::SIXTEENTH);
 }
 
 RobotSerial::~RobotSerial() {}

@@ -23,10 +23,10 @@ public:
   RobotSerial(const std::string& tty, int baud);
   ~RobotSerial() final;
 
-  void up(int steps) final { UD_.Move(Motor::UP, steps, &io_); }
-  void down(int steps) final { UD_.Move(Motor::DOWN, steps, &io_); }
-  void left(int steps) final { LR_.Move(Motor::LEFT, steps, &io_); }
-  void right(int steps) final { LR_.Move(Motor::RIGHT, steps, &io_); }
+  void up(int steps) final { UD_.Move(Motor::UP, steps); }
+  void down(int steps) final { UD_.Move(Motor::DOWN, steps); }
+  void left(int steps) final { LR_.Move(Motor::LEFT, steps); }
+  void right(int steps) final { LR_.Move(Motor::RIGHT, steps); }
   void fire(std::chrono::milliseconds time) final {
     valve(true);
     std::this_thread::sleep_for(time);
@@ -39,8 +39,8 @@ private:
     io_.WriteOutput(13, open);
   }
   ArduinoIO io_;
-  Motor LR_;
-  Motor UD_;
+  Motor LR_{io_};
+  Motor UD_{io_};
 };
 
 class NoOpRobot : public Robot {
