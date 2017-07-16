@@ -11,7 +11,7 @@ public:
   static constexpr Pin kUnconnected2 = 18;
   static constexpr Pin kUnconnected3 = 12;
 
-  ArduinoIO(std::string port, int baud_rate) {
+  ArduinoIO(const std::string& port, int baud_rate) {
     serial_port_.open(port);
     serial_port_.set_option(
         boost::asio::serial_port_base::baud_rate(baud_rate));

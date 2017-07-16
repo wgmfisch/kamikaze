@@ -18,11 +18,14 @@
 #endif
 #include <opencv2/opencv.hpp>
 
+DEFINE_string(tty, "", "Path to Arduino device node. If not given, use fake.");
+DEFINE_int32(webcam, 0,
+             "Webcam# to use. Usually 0 for built-in, 1+ for external.");
+
 constexpr char kFaceCascadeFile[] =
     "../haarcascades/haarcascade_frontalface_default.xml";
 constexpr char kEyeCascadeFile[] = "../haarcascades/haarcascade_eye.xml";
 constexpr char kMouthCascadeFile[] = "../haarcascades/haarcascade_smile.xml";
-static constexpr int kWebcam = 0;
 static const cv::Size kMinFaceSize(20, 20);
 
 #define FIND_EYES 0
@@ -46,8 +49,9 @@ cv::Point operator+(cv::Point p, cv::Size s) {
   return p;
 }
 
+const char *kActionNames[] = {"LEFT", "RIGHT", "DOWN", "UP", "FIRE"};
 struct Action {
-  enum ActionEnum { LEFT, RIGHT, DOWN, UP, CALIBRATE, FIRE };
+  enum ActionEnum { LEFT, RIGHT, DOWN, UP, FIRE };
 
   Action(ActionEnum cmd, int steps) : cmd(cmd), steps(steps) {}
 
@@ -55,26 +59,22 @@ struct Action {
   int steps;
 };
 
-bool DoAction(Action action, Robot* robot) {
+void DoAction(Action action, Robot* robot) {
   switch (action.cmd) {
     case Action::LEFT:
-      return robot->left(action.steps);
+      robot->left(action.steps);
     case Action::RIGHT:
-      return robot->right(action.steps);
+      robot->right(action.steps);
     case Action::DOWN:
-      return robot->down(action.steps);
+      robot->down(action.steps);
     case Action::UP:
-      return robot->up(action.steps);
-    case Action::CALIBRATE:
-      return robot->calibrate();
+      robot->up(action.steps);
     case Action::FIRE:
-      return robot->fire();
+      robot->fire();
   }
-  return false;
 }
 
 std::ostream &operator<<(std::ostream &os, Action action) {
-  const char *kActionNames[] = {"LEFT", "RIGHT", "DOWN", "UP"};
   return os << kActionNames[action.cmd] << "(" << action.steps << ")";
 }
 
@@ -260,12 +260,13 @@ void DetectWebcam(Recognizer *recognizer) {
   bool latest_image_ready = false;
 
   std::thread capture_thread([&] {
-    cv::VideoCapture capture(kWebcam);
-    QCHECK(capture.isOpened()) << "Failed to open webcam #" << kWebcam;
+    cv::VideoCapture capture(FLAGS_webcam);
+    QCHECK(capture.isOpened()) << "Failed to open --webcam=" << FLAGS_webcam;
     while (!done.load(std::memory_order_relaxed)) {
       cv::Mat image;
       if (!capture.read(image)) {
-        std::cerr << "error reading from webcam " << kWebcam << std::endl;
+        std::cerr << "error reading from --webcam=" << FLAGS_webcam
+                  << std::endl;
       } else {
         std::unique_lock<std::mutex> lock(mu);
         latest_image = image;
@@ -298,7 +299,16 @@ void DetectWebcam(Recognizer *recognizer) {
 }
 
 int main(int argc, char **argv) {
-  std::unique_ptr<Robot> robot(new ProxyRobot(""));
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  std::unique_ptr<Robot> robot;
+  if (!FLAGS_tty.empty()) {
+    robot.reset(new RobotSerial(FLAGS_tty, 9600));
+  } else {
+    std::cerr
+        << "warning: using fake robot. Provide a tty to connect to an arduino."
+        << std::endl;
+    robot.reset(new NoOpRobot());
+  }
   Recognizer recognizer(robot.get());
   if (argc == 1) {
     DetectWebcam(&recognizer);

@@ -1,45 +1,28 @@
 #include "robot.h"
-#include "logging.h"
 
-#include <stdio.h>
-#include <memory.h>
+RobotSerial::RobotSerial(const std::string& tty, int baud) : io_(tty, baud) {
+  valve(false);
 
-ProxyRobot::ProxyRobot(const char *tty) {
-  char buffer[100];
-  sprintf(buffer, "../robot_proxy.py %s", tty);
-  sprintf(buffer, "date %s", tty);
-  QCHECK(subproc = popen(buffer, "rw")) << ": cmd=" << buffer;
-  std::cout << "Waiting for robot_proxy.py to be ready...." << std::endl;
-  do {
-    fgets(buffer, sizeof(buffer) - 1, subproc);
-    if (strcmp(buffer, "robot_proxy.py: ready\n") == 0) {
-      break;
-    }
-    std::cerr << "robot_proxy.py babbled: " << buffer << std::endl;
-    QCHECK(!feof(subproc)) << "robot_proxy.py exited while intializing";
-  } while (true);
-  std::cout << "robot_proxy.py is ready." << std::endl;
+  LR_.cmd.dir_pin = 3;
+  LR_.cmd.pulse_pin = 2;
+  LR_.cmd.pos_trigger_pin = 6;
+  LR_.cmd.neg_trigger_pin = ArduinoIO::kUnconnected3;
+  LR_.cmd.forward = true;
+  LR_.cmd.steps = 100;
+  LR_.ms1 = 14;
+  LR_.ms2 = 15;
+  LR_.ms3 = 16;
+
+  UD_.cmd.dir_pin = 4;
+  UD_.cmd.pulse_pin = 5;
+  UD_.cmd.pos_trigger_pin = ArduinoIO::kUnconnected3;
+  UD_.cmd.neg_trigger_pin = 7;
+  UD_.cmd.forward = true;
+  UD_.cmd.steps = 100;
+  UD_.ms1 = 8;
+  UD_.ms2 = 9;
+  UD_.ms3 = 10;
 }
 
-ProxyRobot::~ProxyRobot() {
-  pclose(subproc);
-}
-
-bool ProxyRobot::command_sync(const char *c, int n) {
-  char buffer[100];
-  sprintf(buffer, "%s %d", c, n);
-  return command_sync(buffer);
-}
-
-bool ProxyRobot::command_sync(const char *c) {
-  char buffer[100];
-  std::cout << "sent " << c << ", waiting for ack..." << std::endl;
-  do {
-    fgets(buffer, sizeof(buffer) - 1, subproc);
-    if (strcmp(buffer, "done") == 0) {
-      break;
-    }
-    std::cerr << "robot_proxy.py babbled: " << buffer << std::endl;
-    QCHECK(!feof(subproc)) << "robot_proxy.py exited while running " << c;
-  } while(true);
+RobotSerial::~RobotSerial() {
 }
