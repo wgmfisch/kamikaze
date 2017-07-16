@@ -82,23 +82,23 @@ struct Action {
   int steps;
 };
 
-void DoAction(Action action, Robot* robot) {
+void DoAction(Action action, Robot *robot) {
   switch (action.cmd) {
-    case Action::LEFT:
-      robot->left(action.steps);
-      return;
-    case Action::RIGHT:
-      robot->right(action.steps);
-      return;
-    case Action::DOWN:
-      robot->down(action.steps);
-      return;
-    case Action::UP:
-      robot->up(action.steps);
-      return;
-    case Action::FIRE:
-      robot->fire();
-      return;
+  case Action::LEFT:
+    robot->left(action.steps);
+    return;
+  case Action::RIGHT:
+    robot->right(action.steps);
+    return;
+  case Action::DOWN:
+    robot->down(action.steps);
+    return;
+  case Action::UP:
+    robot->up(action.steps);
+    return;
+  case Action::FIRE:
+    robot->fire();
+    return;
   }
 }
 
@@ -116,12 +116,12 @@ public:
 
   Recognizer(Robot *robot) : robot_(robot) {
 #ifndef USE_CUDA
-    QCHECK(face_detector_->load(kFaceCascadeFile)) << " error loading "
-                                                  << kFaceCascadeFile;
-    QCHECK(eye_detector_->load(kEyeCascadeFile)) << " error loading "
-                                                << kEyeCascadeFile;
-    QCHECK(mouth_detector_->load(kMouthCascadeFile)) << " error loading "
-                                                    << kMouthCascadeFile;
+    QCHECK(face_detector_->load(kFaceCascadeFile))
+        << " error loading " << kFaceCascadeFile;
+    QCHECK(eye_detector_->load(kEyeCascadeFile))
+        << " error loading " << kEyeCascadeFile;
+    QCHECK(mouth_detector_->load(kMouthCascadeFile))
+        << " error loading " << kMouthCascadeFile;
 #endif
   }
 
@@ -149,7 +149,7 @@ public:
   }
 
   std::vector<Action> DetermineAction(cv::Mat &input_img,
-                                             const cv::Point &mouth) {
+                                      const cv::Point &mouth) {
     QCHECK(input_img.rows == kImageSize.y);
     QCHECK(input_img.cols == kImageSize.x);
     constexpr int kTargetSize = 20;
