@@ -174,14 +174,16 @@ public:
     PlotFeature(input_img, target, kTeal);
     auto vec = (kTarget - mouth) * kFovInSteps / kImageSize;
     std::vector<Action> actions;
-    if (abs(vec.x) > abs(vec.y) && abs(vec.x) > 4) {
+    if (abs(vec.x) > 4) {
       actions.emplace_back(vec.x < 0 ? Action::RIGHT : Action::LEFT,
                            abs(vec.x));
       maybe_fire_ = 0;
-    } else if (abs(vec.y) > 4) {
+    }
+    if (abs(vec.y) > 4) {
       actions.emplace_back(vec.y < 0 ? Action::DOWN : Action::UP, abs(vec.y));
       maybe_fire_ = 0;
-    } else {
+    }
+    if (actions.empty()) {
       auto fire_time = now();
       if (++maybe_fire_ > kMinConsecutiveOnTargetToFire &&
           fire_time - last_fire_ > kMinTimeBetweenFire) {
