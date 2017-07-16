@@ -301,6 +301,11 @@ void DetectWebcam(Recognizer *recognizer) {
   std::thread capture_thread([&] {
     cv::VideoCapture capture(FLAGS_webcam);
     QCHECK(capture.isOpened()) << "Failed to open --webcam=" << FLAGS_webcam;
+    // A return value of false doesn't mean the prop set failed!
+    QCHECK(capture.set(cv::CAP_PROP_FRAME_WIDTH, kImageSize.x) || true)
+        << " tried to set width to " << kImageSize.x;
+    QCHECK(capture.set(cv::CAP_PROP_FRAME_HEIGHT, kImageSize.y) || true)
+        << " tried to set height to " << kImageSize.y;
     while (!done.load(std::memory_order_relaxed)) {
       cv::Mat image;
       if (!capture.grab()) {  // Defer decoding until after we calculate the timestamp.
