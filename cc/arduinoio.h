@@ -1,9 +1,8 @@
+#include <boost/asio.hpp>
+#include <boost/asio/serial_port.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
-#include <boost/asio.hpp>
-#include <boost/asio/serial_port.hpp>
-
 
 class ArduinoIO {
 public:
@@ -12,7 +11,7 @@ public:
   static constexpr Pin kUnconnected2 = 18;
   static constexpr Pin kUnconnected3 = 12;
 
-  ArduinoIO(const std::string& port, int baud_rate) {
+  ArduinoIO(const std::string &port, int baud_rate) {
     serial_port_.open(port);
     serial_port_.set_option(
         boost::asio::serial_port_base::baud_rate(baud_rate));
@@ -28,17 +27,15 @@ public:
     Pin done_pin;
     bool forward;
     uint8_t max_wait = 0;
-    int32_t steps; // little-endian -- fine on x86.
-    int32_t temp_pin_threshold = 0;  // little-endian -- fine on x86.
+    int32_t steps;                  // little-endian -- fine on x86.
+    int32_t temp_pin_threshold = 0; // little-endian -- fine on x86.
   };
 
-  void Move(const MoveCmd& cmd) {
-    SendMessage("MOVE" + std::string((const char*) &cmd, sizeof(cmd)));
+  void Move(const MoveCmd &cmd) {
+    SendMessage("MOVE" + std::string((const char *)&cmd, sizeof(cmd)));
   }
 
-  ~ArduinoIO() {
-    serial_port_.close();
-  }
+  ~ArduinoIO() { serial_port_.close(); }
 
 private:
   void SendMessage(std::string command);
@@ -70,9 +67,26 @@ struct Motor {
     io->WriteOutput(ms3, s & 4);
   }
 
-  void Move(bool forward, int steps, ArduinoIO* io) {
+  void Move(bool forward, int steps, ArduinoIO *io) {
     cmd.forward = forward;
     cmd.steps = steps;
     io->Move(cmd);
+  }
+
+  void MoveAndSetSpeed(bool forward, Speed speed, int steps, ArduinoIO *io) {
+    SetSpeed(speed, io);
+    Move(forward, steps, io);
+  }
+
+  void MoveAutoSpeed(bool forward, int steps, ArduinoIO *io) {
+    const int kCoarseness = 256;
+    for (Speed speed : {SIXTEENTH, EIGHTH, QUARTER, HALF}) {
+      if (steps < kCoarseness) {
+        MoveAndSetSpeed(forward, speed, steps, io);
+        return;
+      }
+      steps >>= 1;
+    }
+    MoveAndSetSpeed(forward, FULL, steps, io);
   }
 };
