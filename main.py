@@ -31,9 +31,13 @@ YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
 FIRE_TIME_SECS = 0.5
-FOV_IN_STEPS = (int(70. / .3) * 4, 20. / (1.8 / 2.5) * 4)
+# Gear ratios: azimuth=7, elevation=3.875, step_size=1.8/16 deg
+# Estimated FOV: 60 deg horiz, 40 deg vert
+# Numbers below were chosen empirically.
+FOV_IN_STEPS = (500, 1000)
 MAX_STEPS = 100 * 16
 MIN_STEPS = 4
+WEBCAM_SKEW_ANGLE_DEG = 3
 
 FRAME_SIZE = (1920, 1080)
 _720p_FRAME_SIZE = (1280, 720)
@@ -59,6 +63,7 @@ MAYBE_FIRE = 'maybe-fire'
 
 MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
+DETECT_SMILE = False
 MAX_FACES = 1
 
 def monkeypatch_nopreview():
@@ -138,7 +143,7 @@ class Recognizer(object):
         self.plot_feature(self.subset_array(img, face), eye, GREEN)
       smile_roi = (x, y + 2*h//3, w, h//3)
       smile = self.smile_filter(self.smile_cascade.detectMultiScale(
-          self.subset_array(gray, smile_roi)))
+          self.subset_array(gray, smile_roi))) if DETECT_SMILE else None
       if smile is not None:
         self.plot_feature(self.subset_array(img, smile_roi), smile, RED)
         smile = (smile[0] + smile_roi[0], smile[1] + smile_roi[1], smile[2],
@@ -172,6 +177,7 @@ class Recognizer(object):
       action += ((UP, to_steps(TARGET_POS[1] - mouth_center[1], 1)),)
     elif mouth_center[1] > TARGET_POS[1] + TARGET_RANGE[1]:
       action += ((DOWN, to_steps(mouth_center[1] - TARGET_POS[1], 1)),)
+    action = sorted(action, key=lambda x:x[1], reverse=True)
 
     if len(action) == 0:
       self.maybe_fire += 1
@@ -215,12 +221,15 @@ def detect_webcam(recognizer):
   done = [False]
   def read_images():
     try:
+      Mrot = cv2.getRotationMatrix2D((FRAME_SIZE[0] / 2, FRAME_SIZE[1] / 2),
+                                     WEBCAM_SKEW_ANGLE_DEG, 1)
       cap = cv2.VideoCapture(FLAGS.webcam)
       assert cap.isOpened(), "Failed to open --webcam=%d" % FLAGS.webcam
       cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_SIZE[0])
       cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_SIZE[1])
       while not done[0]:
         _, frame = cap.read()
+        frame = cv2.warpAffine(frame, Mrot, FRAME_SIZE)
         latest_image.put(frame)
     finally:
       cap.release()
@@ -237,6 +246,14 @@ def detect_webcam(recognizer):
         recognizer.robot.fire(FIRE_TIME_SECS)
       elif key == ord('c'):
         recognizer.robot.calibrate()
+      elif key == ord('w'):
+        recognizer.robot.up(FOV_IN_STEPS[1]*2/5)
+      elif key == ord('s'):
+        recognizer.robot.down(FOV_IN_STEPS[1]*2/5)
+      elif key == ord('d'):
+        recognizer.robot.right(FOV_IN_STEPS[0]*2/5)
+      elif key == ord('a'):
+        recognizer.robot.left(FOV_IN_STEPS[0]*2/5)
     done[0] = True
   read_thread = threading.Thread(target=read_images)
   read_thread.start()
