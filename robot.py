@@ -120,6 +120,13 @@ class FakeRobot(object):
   def fire(self, *args):
     print 'fire(%s)' % (', '.join(map(str, args)))
 
+class LoudFakeRobot(object):
+  def __getattribute__(self, name):
+    def wraps(*args, **kwargs):
+      kwargs = tuple('%s=%s' % i for i in kwargs.items())
+      print '%s(%s)' % (name, ', '.join(map(str, args + kwargs)))
+    return wraps
+
 class Robot(object):
   def __init__(self, port="ttyACM0"):
     self.uno = arduino.Arduino(port, baud=9600)

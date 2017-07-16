@@ -7,6 +7,9 @@
 #include <thread>
 #include <vector>
 
+#include "logging.h"
+#include "robot.h"
+
 //#define USE_CUDA 1
 #ifdef USE_CUDA
 #include <opencv2/cudaobjdetect.hpp>
@@ -41,41 +44,37 @@ cv::Point operator+(cv::Point p, cv::Size s) {
   return p;
 }
 
-enum class Action { LEFT, RIGHT, DOWN, UP };
+struct Action {
+  enum ActionEnum { LEFT, RIGHT, DOWN, UP, CALIBRATE, FIRE };
+
+  Action(ActionEnum cmd, int steps) : cmd(cmd), steps(steps) {}
+
+  ActionEnum cmd;
+  int steps;
+};
+
+bool DoAction(Action action, Robot* robot) {
+  switch (action.cmd) {
+    case Action::LEFT:
+      return robot->left(action.steps);
+    case Action::RIGHT:
+      return robot->right(action.steps);
+    case Action::DOWN:
+      return robot->down(action.steps);
+    case Action::UP:
+      return robot->up(action.steps);
+    case Action::CALIBRATE:
+      return robot->calibrate();
+    case Action::FIRE:
+      return robot->fire();
+  }
+  return false;
+}
 
 std::ostream &operator<<(std::ostream &os, Action action) {
   const char *kActionNames[] = {"LEFT", "RIGHT", "DOWN", "UP"};
-  return os << kActionNames[int(action)];
+  return os << kActionNames[action.cmd] << "(" << action.steps << ")";
 }
-
-struct NoAssertHelper {};
-
-struct AssertHelper {
-  ~AssertHelper() { abort(); }
-
-  operator NoAssertHelper() const { return NoAssertHelper(); }
-};
-
-template <typename T>
-const AssertHelper &operator<<(const AssertHelper &helper, T &&msg) {
-  std::cerr << std::forward<T>(msg);
-  return helper;
-}
-
-#define QCHECK(cond)                                                           \
-  ((cond)) ? NoAssertHelper() : AssertHelper() << __FILE__ << ":" << __LINE__  \
-                                               << ": " << #cond
-
-class Robot {
-public:
-  virtual ~Robot() {}
-  virtual void operator()(Action action) = 0;
-};
-
-class NoOpRobot : public Robot {
-public:
-  void operator()(Action) final {}
-};
 
 class Recognizer {
 public:
@@ -128,13 +127,16 @@ public:
     PlotFeature(input_img, target, kTeal);
     std::vector<Action> actions;
     if (mouth.x < target.x)
-      actions.push_back(Action::LEFT);
+      actions.emplace_back(Action::LEFT, 4);
     else if (mouth.x > target.x + target.width)
-      actions.push_back(Action::RIGHT);
+      actions.emplace_back(Action::RIGHT, 4);
     if (mouth.y < target.y)
-      actions.push_back(Action::UP);
+      actions.emplace_back(Action::UP, 4);
     else if (mouth.y > target.y + target.height)
-      actions.push_back(Action::DOWN);
+      actions.emplace_back(Action::DOWN, 4);
+    std::sort(
+        actions.begin(), actions.end(),
+        [](const Action &a, const Action &b) { return a.steps > b.steps; });
     return actions;
   }
 
@@ -196,7 +198,7 @@ public:
       }
       for (Action action :
            DetermineAction(input_img, MouthCenter(BestMouth(mouths)))) {
-        (*robot_)(action);
+        DoAction(action, robot_);
         action_str << action << " ";
       }
       break;
@@ -294,8 +296,8 @@ void DetectWebcam(Recognizer *recognizer) {
 }
 
 int main(int argc, char **argv) {
-  NoOpRobot robot;
-  Recognizer recognizer(&robot);
+  std::unique_ptr<Robot> robot(new ProxyRobot(""));
+  Recognizer recognizer(robot.get());
   if (argc == 1) {
     DetectWebcam(&recognizer);
   } else {
