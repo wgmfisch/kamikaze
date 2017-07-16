@@ -128,7 +128,7 @@ class LoudFakeRobot(object):
     return wraps
 
 class Robot(object):
-  def __init__(self, port="ttyACM0"):
+  def __init__(self, port="ttyACM0", auto_calibrate = False):
     self.uno = arduino.Arduino(port, baud=9600)
     time.sleep(2)  # Wait for serial to connect
     self.__valve(False)
@@ -156,11 +156,10 @@ class Robot(object):
         ms2=UP_DOWN_MS2,
         ms3=UP_DOWN_MS3)
     answer = None
-    while answer not in ('y', 'n'):
+    while answer not in ('y', 'n') and auto_calibrate:
       answer = raw_input("Calibrate (y/n)? ").lower()
     if answer == 'y':
       self.calibrate()
-    self.calibrate()
 
   def calibrate(self):
     for motor in [self.horizontal_motor, self.vertical_motor]:

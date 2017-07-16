@@ -21,6 +21,7 @@ gflags.DEFINE_bool('preview', True, 'Enable preview window')
 gflags.DEFINE_integer('webcam', 0, 'Capture device number to use')
 gflags.DEFINE_bool('fake', True, 'Create actual robot?')
 gflags.DEFINE_string('tty', 'ttyACM0', 'TTY for the Arduino')
+gflags.DEFINE_bool('auto_calibrate', False, 'Auto-calibrate every 30 sec?')
 FLAGS = gflags.FLAGS
 
 BLUE = (255, 0, 0)
@@ -161,7 +162,7 @@ class Recognizer(object):
       self.maybe_fire = 0
     for action in actions:
       self.do_action(*action)
-    if time.time() - self.last_action_time > 30:
+    if FLAGS.auto_calibrate and time.time() - self.last_action_time > 30:
       self.do_action(CALIBRATE, 0)
 
   def determine_action(self, mouth_center):
@@ -273,7 +274,8 @@ def detect_images(paths, recognizer):
 def main():
   from sys import argv
   argv = FLAGS(argv)
-  recognizer = Recognizer(FakeRobot() if FLAGS.fake else Robot(FLAGS.tty))
+  recognizer = Recognizer(FakeRobot() if FLAGS.fake else Robot(
+      FLAGS.tty, auto_calibrate=FLAGS.auto_calibrate))
   if not FLAGS.preview:
     monkeypatch_nopreview()
   try:
