@@ -3,7 +3,7 @@
 struct NoAssertHelper {};
 
 struct AssertHelper {
-  ~AssertHelper() { abort(); }
+  ~AssertHelper() { std::cerr << std::endl; abort(); }
 
   operator NoAssertHelper() const { return NoAssertHelper(); }
 };
@@ -16,5 +16,5 @@ const AssertHelper &operator<<(const AssertHelper &helper, T &&msg) {
 
 #define QCHECK(cond)                                                           \
   ((cond)) ? NoAssertHelper() : AssertHelper() << __FILE__ << ":" << __LINE__  \
-                                               << ": " << #cond
+                                               << ": " << #cond << " "
 

@@ -358,7 +358,7 @@ int main(int argc, char **argv) {
     robot.reset(new RobotSerial(FLAGS_tty, 9600));
   } else {
     std::cerr
-        << "warning: using fake robot. Provide a tty to connect to an arduino."
+        << "warning: using fake robot. Provide --tty to connect to an arduino."
         << std::endl;
     robot.reset(new NoOpRobot());
   }
