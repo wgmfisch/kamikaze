@@ -43,6 +43,31 @@ private:
   Motor UD_{io_};
 };
 
+class PythonProxyRobot final : public Robot {
+public:
+  PythonProxyRobot(const std::string& tty, int baud);
+  ~PythonProxyRobot() final;
+
+  void up(int steps) final { UD_.Move(Motor::UP, steps); }
+  void down(int steps) final { UD_.Move(Motor::DOWN, steps); }
+  void left(int steps) final { LR_.Move(Motor::LEFT, steps); }
+  void right(int steps) final { LR_.Move(Motor::RIGHT, steps); }
+  void fire(std::chrono::milliseconds time) final {
+    valve(true);
+    std::this_thread::sleep_for(time);
+    valve(false);
+  }
+
+private:
+  void valve(bool open) {
+    io_.WriteOutput(11, open);
+    io_.WriteOutput(13, open);
+  }
+  ArduinoIO io_;
+  Motor LR_{io_};
+  Motor UD_{io_};
+};
+
 class NoOpRobot : public Robot {
 public:
   void up(int) final {}

@@ -44,13 +44,14 @@ FRAME_SIZE = (1920, 1080)
 _720p_FRAME_SIZE = (1280, 720)
 
 TARGET_CENTER = (FRAME_SIZE[0]//2, FRAME_SIZE[1]//2)
-TARGET_RANGE = (15, 15)
+TARGET_RANGE = (20, 20)
 TARGET_POS = (TARGET_CENTER[0] - TARGET_RANGE[0] // 2,
               TARGET_CENTER[1] - TARGET_RANGE[1] // 2)
 _720p_TARGET_POS = (538, 490)
 _PARAM_TARGET_POS = (_720p_TARGET_POS[0] * FRAME_SIZE[0] // _720p_FRAME_SIZE[0],
               _720p_TARGET_POS[1] * FRAME_SIZE[1] // _720p_FRAME_SIZE[1] + 120)
-_1080_TARGET_POS = (794, 855)
+#_1080_TARGET_POS = (794 + 105, 835)
+_1080_TARGET_POS = (987, 812)
 TARGET_POS = _1080_TARGET_POS
 
 
@@ -61,6 +62,7 @@ DOWN = 'down'
 CALIBRATE = 'calibrate'
 FIRE = 'fire'
 MAYBE_FIRE = 'maybe-fire'
+MIN_CONSECUTIVE_HITS_FOR_FIRE = 5
 
 MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
@@ -156,8 +158,10 @@ class Recognizer(object):
                   (0, 40), cv2.FONT_HERSHEY_PLAIN, 2, WHITE)
     cv2.putText(img, '%.2f fps' % (1 / (time.clock() - start_time)),
                 (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, WHITE)
+    cv2.namedWindow('img', cv2.WINDOW_NORMAL)
     cv2.imshow('img', img)
-    if self.maybe_fire > 5:
+    cv2.resizeWindow('img', 800, 600)
+    if self.maybe_fire > MIN_CONSECUTIVE_HITS_FOR_FIRE:
       actions += ((FIRE, 0),)
       self.maybe_fire = 0
     for action in actions:

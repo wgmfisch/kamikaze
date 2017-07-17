@@ -2,6 +2,13 @@
 import sys
 import robot
 
+OUTPUT_FILE = 'reply_from_proxy'
+
+
+def reply(msg):
+  with open(OUTPUT_FILE, 'w') as f:
+    print >> f, msg
+
 
 def send_cmd(cmd, robot):
   cmd = cmd.strip().split()
@@ -11,10 +18,14 @@ def send_cmd(cmd, robot):
 
 
 def read_loop(robot):
-  print 'robot_proxy.py: ready'
+  reply('ready')
+  i = 0
   try:
     while True:
-      send_cmd(raw_input(), robot)
+      cmd = raw_input()
+      send_cmd(cmd, robot)
+      reply('%i %s' % (i, cmd))
+      i += 1
   except EOFError:
     pass
 
@@ -24,4 +35,5 @@ if __name__ == "__main__":
     print 'robot_proxy.py: warning: using fake'
     read_loop(robot.LoudFakeRobot())
   else:
+    print 'robot_proxy.py: connecting to', sys.argv[1]
     read_loop(robot.Robot(sys.argv[1]))

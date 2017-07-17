@@ -41,7 +41,7 @@ static const cv::Scalar kTeal(255, 255, 0);
 static const cv::Scalar kYellow(0, 255, 255);
 static const cv::Scalar kWhite(255, 255, 255);
 
-static const cv::Point kImageSize(1280, 720);
+static const cv::Point kImageSize(1920, 1080);
 static const cv::Point kTarget = kImageSize / 2;
 static const cv::Point kFovInSteps(200, 100);
 static const int kTargetSize = 20;
@@ -190,7 +190,7 @@ public:
   }
 
   void Detect(time_point timestamp, cv::Mat &input_img) {
-    if (timestamp <= last_action_) {
+    if (timestamp - last_action_ <=  std::chrono::milliseconds(10)) {
       return;
     }
     cv::cvtColor(input_img, gray_, cv::COLOR_BGR2GRAY);
