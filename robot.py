@@ -195,13 +195,3 @@ if __name__ == "__main__":
   while True:
     robot.uno.WriteOutput(13, True)
     time.sleep(1)
-    robot.uno.WriteOutput(13, False)
-    time.sleep(1)
-    robot.left(STEPS)
-    time.sleep(.5)
-    robot.right(STEPS)
-    time.sleep(.5)
-    robot.up(STEPS)
-    time.sleep(.5)
-    robot.down(STEPS)
-    time.sleep(.5)
