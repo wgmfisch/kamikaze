@@ -24,6 +24,16 @@ gflags.DEFINE_string('tty', 'ttyACM0', 'TTY for the Arduino')
 gflags.DEFINE_bool('auto_calibrate', False, 'Auto-calibrate every 30 sec?')
 FLAGS = gflags.FLAGS
 
+# Change this to match the coordinates that the bot _actually_ hits when it
+# fires. Open the annotated image captured during firing in Gimp to get the
+# coordinates.
+TARGET_POS = (944, 753)
+
+
+# Use a level + GIMP + one of the fire shots to figure out what the correct
+# angle here should be.
+WEBCAM_SKEW_ANGLE_DEG = 8.1
+
 BLUE = (255, 0, 0)
 GREEN = (0, 255, 0)
 RED = (0, 0, 255)
@@ -31,6 +41,7 @@ TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
+PREVIEW_WINDOW_SIZE = (1600, 1200)
 latest_img = None
 
 
@@ -45,24 +56,12 @@ FIRE_TIME_SECS = 0.5
 FOV_IN_STEPS = (500, 1000)
 MAX_STEPS = 100 * 16
 MIN_STEPS = 4
-WEBCAM_SKEW_ANGLE_DEG = 3
 
 FRAME_SIZE = (1920, 1080)
 _720p_FRAME_SIZE = (1280, 720)
 
 TARGET_CENTER = (FRAME_SIZE[0] // 2, FRAME_SIZE[1] // 2)
 TARGET_RANGE = (20, 20)
-_720p_TARGET_POS = (538, 490)
-_PARAM_TARGET_POS = (
-    _720p_TARGET_POS[0] * FRAME_SIZE[0] // _720p_FRAME_SIZE[0],
-    _720p_TARGET_POS[1] * FRAME_SIZE[1] // _720p_FRAME_SIZE[1] + 120)
-#_1080_TARGET_POS = (794 + 105, 835)
-#_1080_TARGET_POS = (987, 812)
-#_1080_TARGET_POS = (964, 787)
-_1080_TARGET_POS = (944, 753)
-
-
-TARGET_POS = _1080_TARGET_POS
 
 LEFT = 'left'
 RIGHT = 'right'
@@ -179,7 +178,7 @@ class Recognizer(object):
                 cv2.FONT_HERSHEY_PLAIN, 1, WHITE)
     cv2.namedWindow('img', cv2.WINDOW_NORMAL)
     cv2.imshow('img', img)
-    cv2.resizeWindow('img', 1280, 720)
+    cv2.resizeWindow('img', *PREVIEW_WINDOW_SIZE)
     if self.maybe_fire > MIN_CONSECUTIVE_HITS_FOR_FIRE:
       actions += ((FIRE, 0),)
       self.maybe_fire = 0
@@ -237,13 +236,18 @@ class Recognizer(object):
     elif dir is CALIBRATE:
       self.robot.calibrate()
     elif dir is FIRE:
-      save_image(img, "_0_annotated")
-      save_image(latest_img.get(), "_1_before")
-      time.sleep(.5)
+      save_image(img, "_annotated")
+      save_image(latest_img.get(), "+0000ms")
       self.robot.fire(FIRE_TIME_SECS)
-      save_image(latest_img.get(), "_2_during")
-      time.sleep(1.1)
-      save_image(latest_img.get(), "_3_after")
+      save_image(latest_img.get(), "+0500ms")  # Assuming fire time = 500ms.
+      time.sleep(.5)
+      save_image(latest_img.get(), "+1000ms")
+      time.sleep(.5)
+      save_image(latest_img.get(), "+1500ms")
+      time.sleep(.5)
+      save_image(latest_img.get(), "+2000ms")
+      time.sleep(.5)
+      save_image(latest_img.get(), "+2500ms")
     self.last_action_time = time.time()
 
 
@@ -292,7 +296,13 @@ def detect_webcam(recognizer):
       elif key == ord('a'):
         recognizer.robot.left(FOV_IN_STEPS[0] * 2 / 5)
     done[0] = True
-
+  print """
+Focus the preview window and press:
+    p: pause
+    q: quit
+    c: manually calibrate
+    w, a, s, d: manually move the steppers
+    f: manually fire"""
   read_thread = threading.Thread(target=read_images)
   read_thread.start()
   process_thread = threading.Thread(target=process_images)
